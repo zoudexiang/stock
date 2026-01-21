@@ -185,7 +185,7 @@ def process_stock_full_strategy_with_return_target(start_date: str, end_date: st
 # 调用函数，执行策略并导出结果
 if __name__ == "__main__":
     START_DATE = '2025-12-01'
-    END_DATE = '2026-01-19'
+    END_DATE = '2026-01-21'
 
     # 执行策略，获取符合条件的目标天数据
     stock_valid_target = process_stock_full_strategy_with_return_target(START_DATE, END_DATE)
