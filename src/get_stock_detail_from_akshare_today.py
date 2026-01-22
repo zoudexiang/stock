@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import time
 import random
+import datetime
 
 
 class EastMoneyStableFetcher:
@@ -130,6 +131,8 @@ class EastMoneyStableFetcher:
 
 
 if __name__ == '__main__':
+    # 自动获取当前系统日期，格式化为 "年-月-日"（如 2026-01-22）
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
     fetcher = EastMoneyStableFetcher()
-    # 2026-01-21 今日数据
-    fetcher.fetch_market_data('2026-01-21')
+    # 今日数据
+    fetcher.fetch_market_data(today)
