@@ -1,7 +1,9 @@
 import pandas as pd
+import datetime
 from sqlalchemy import create_engine
 
 from src.utils import constants
+
 def process_stock_full_strategy_with_return_target(start_date: str, end_date: str):
     """
     纯Python实现完整股票策略（含返回目标天约束），仅输出符合条件的目标天数据（保留原表结构）
@@ -185,7 +187,7 @@ def process_stock_full_strategy_with_return_target(start_date: str, end_date: st
 # 调用函数，执行策略并导出结果
 if __name__ == "__main__":
     START_DATE = '2025-12-01'
-    END_DATE = '2026-01-23'
+    END_DATE = today = datetime.datetime.now().strftime("%Y-%m-%d")
 
     # 执行策略，获取符合条件的目标天数据
     stock_valid_target = process_stock_full_strategy_with_return_target(START_DATE, END_DATE)
