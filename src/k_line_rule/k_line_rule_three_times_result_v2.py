@@ -186,11 +186,12 @@ def process_stock_full_strategy_with_return_target(start_date: str, end_date: st
 
 # 调用函数，执行策略并导出结果
 if __name__ == "__main__":
-    START_DATE = '2025-12-01'
-    END_DATE = today = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    start_date = '2025-12-01'
+    end_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
     # 执行策略，获取符合条件的目标天数据
-    stock_valid_target = process_stock_full_strategy_with_return_target(START_DATE, END_DATE)
+    stock_valid_target = process_stock_full_strategy_with_return_target(start_date, end_date)
 
     # 查看结果并导出CSV
     if not stock_valid_target.empty:
@@ -198,7 +199,7 @@ if __name__ == "__main__":
         print(stock_valid_target.head(10))
 
         # 导出CSV（解决中文乱码）
-        csv_file_path = f"../file/k_line_three_times_result_v2_{END_DATE}.csv"
+        csv_file_path = f"../file/k_line_three_times_result_v2_{end_date}.csv"
         stock_valid_target.to_csv(
             csv_file_path,
             index=False,
