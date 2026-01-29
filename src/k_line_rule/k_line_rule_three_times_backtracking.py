@@ -139,7 +139,7 @@ def screen_stocks_backwards_and_export(target_return_dt):
 if __name__ == "__main__":
 
     # 设定盘后选股的日期(返回目标天)
-    target_date = '2026-01-26'
+    target_date = '2026-01-29'
     screen_stocks_backwards_and_export(target_date)
 
     # 纯 sql 版本替代 python 版本(无优化版)
