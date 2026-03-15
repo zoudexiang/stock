@@ -26,13 +26,49 @@ def screen_stocks_backwards_and_export(target_return_dt):
         # 同时过滤掉 ST、科创板等
         sql_query = f"""
         select 
-            * 
-        from stock.stock_detail 
-        where dt <= '{target_return_dt}' 
-          and dt >= date_sub('{target_return_dt}', interval 90 day)
-          and code not like '688%%' 
-          and code not like '920%%' 
-          and stock_name not like '%%st%%'
+            dt, 
+            a.code, 
+            stock_name, 
+            price_open, 
+            price_close, 
+            price_highest, 
+            price_lowest, 
+            trade, 
+            trade_amount, 
+            amplitude, 
+            rise, 
+            amount_increase_decrease, 
+            turnover_rate,
+            if(industry is null, '', industry) as industry,
+            if(industry_detail is null, '', industry_detail) as industry_detail
+        from (
+            select
+                dt, 
+                code, 
+                stock_name, 
+                price_open, 
+                price_close, 
+                price_highest, 
+                price_lowest, 
+                trade, 
+                trade_amount, 
+                amplitude, 
+                rise, 
+                amount_increase_decrease, 
+                turnover_rate
+            from stock.stock_detail 
+            where dt <= '{target_return_dt}' 
+              and dt >= date_sub('{target_return_dt}', interval 90 day)
+              and code not like '688%%' 
+              and code not like '920%%' 
+              and stock_name not like '%%st%%'
+        ) a left join (
+            select 
+                replace(replace(code, 'SZ', ''), 'SH', '') as code, 
+                industry,
+                industry_detail
+            from stock.dim_stock_tag
+        ) b on a.code=b.code
         order by code, dt;
         """
 
@@ -139,7 +175,7 @@ def screen_stocks_backwards_and_export(target_return_dt):
 if __name__ == "__main__":
 
     # 设定盘后选股的日期(返回目标天)
-    target_date = '2026-01-29'
+    target_date = '2026-03-13'
     screen_stocks_backwards_and_export(target_date)
 
     # 纯 sql 版本替代 python 版本(无优化版)

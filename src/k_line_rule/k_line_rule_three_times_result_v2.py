@@ -22,13 +22,49 @@ def process_stock_full_strategy_with_return_target(start_date: str, end_date: st
 
         sql_query = f'''
         select 
-            * 
-        from stock.stock_detail
-        where dt>='{start_date}' 
-            and dt<='{end_date}' 
-            and code not like '688%%'
-            and code not like '920%%' 
-            and stock_name not like '%%ST%%'
+            dt, 
+            a.code as code, 
+            stock_name, 
+            price_open, 
+            price_close, 
+            price_highest, 
+            price_lowest, 
+            trade, 
+            trade_amount, 
+            amplitude, 
+            rise, 
+            amount_increase_decrease, 
+            turnover_rate,
+            if(industry is null, '', industry) as industry,
+            if(industry_detail is null, '', industry_detail) as industry_detail
+        from (
+            select
+                dt, 
+                code, 
+                stock_name, 
+                price_open, 
+                price_close, 
+                price_highest, 
+                price_lowest, 
+                trade, 
+                trade_amount, 
+                amplitude, 
+                rise, 
+                amount_increase_decrease, 
+                turnover_rate
+            from stock.stock_detail 
+            where dt>='{start_date}' 
+                and dt<='{end_date}' 
+                and code not like '688%%' 
+                and code not like '920%%' 
+                and stock_name not like '%%st%%'
+        ) a left join (
+            select 
+                replace(replace(code, 'SZ', ''), 'SH', '') as code, 
+                industry,
+                industry_detail
+            from stock.dim_stock_tag
+        ) b on a.code=b.code
         order by code, dt;
         '''
         df = pd.read_sql(sql_query, engine)
@@ -170,9 +206,9 @@ def process_stock_full_strategy_with_return_target(start_date: str, end_date: st
 
         # 定义原表字段结构（可正常找到price_open等列）
         original_table_columns = [
-            'dt', 'code', 'price_open', 'price_close', 'price_highest',
+            'dt', 'code', 'stock_name', 'price_open', 'price_close', 'price_highest',
             'price_lowest', 'trade', 'trade_amount', 'amplitude', 'rise',
-            'amount_increase_decrease', 'turnover_rate', 'stock_code', 'stock_name'
+            'amount_increase_decrease', 'turnover_rate', 'industry', 'industry_detail'
         ]
 
         final_result = valid_target_df[original_table_columns].drop_duplicates()
