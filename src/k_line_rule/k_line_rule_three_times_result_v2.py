@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from src.utils import constants
 
@@ -219,12 +219,84 @@ def process_stock_full_strategy_with_return_target(start_date: str, end_date: st
         print(f"执行失败：{str(e)}")
         return pd.DataFrame()
 
+def insert_data_to_mysql(stock_valid_target, end_date):
+    """
+    将 stock_valid_target 数据写入 MySQL 表 stock.stock_detail_calc
+    逻辑：
+    1. 新增 calc_dt 字段（当日日期，格式 yyyy-MM-dd）
+    2. 先删除当前 calc_dt 的所有数据（防重复）
+    3. 将数据写入表中
+    : param stock_valid_target: 策略计算后的 DataFrame（process_stock_full_strategy_with_return_target 返回值）
+    """
+    # 0. 空数据直接返回
+    if stock_valid_target.empty:
+        print("⚠️  无有效数据，跳过MySQL写入")
+        return
+
+    try:
+        # 1. 配置数据库连接（复用原有 constants 配置，保持一致性）
+        db_config = constants.db_config
+        engine_url = f"mysql+pymysql://{db_config['user']}:{db_config['password']}@" \
+                     f"{db_config['host']}:{db_config['port']}/{db_config['database']}?charset={db_config['charset']}"
+        engine = create_engine(
+            engine_url,
+            pool_size=10,
+            pool_recycle=3600,
+            echo=False  # 关闭SQL日志，减少输出
+        )
+
+        # 2. 新增 calc_dt 字段（数据入表日期，格式 yyyy-MM-dd）
+        stock_data = stock_valid_target.copy()  # 深拷贝，避免修改原数据
+        stock_data['calc_dt'] = end_date  # 新增字段
+
+        # 3. 定义目标表字段（严格匹配建表语句，顺序一致）
+        target_columns = [
+            'calc_dt', 'dt', 'code', 'stock_name', 'price_open', 'price_close',
+            'price_highest', 'price_lowest', 'trade', 'trade_amount', 'amplitude',
+            'rise', 'amount_increase_decrease', 'turnover_rate', 'industry', 'industry_detail'
+        ]
+
+        # 4. 筛选并对齐字段（防止多余字段导致写入失败）
+        stock_data = stock_data[target_columns]
+
+        # 5. 先删除当前calc_dt的所有数据（防重复）
+        with engine.connect() as conn:
+            # 开启事务
+            trans = conn.begin()
+            try:
+                # 删除语句
+                delete_sql = text(f"DELETE FROM stock.stock_detail_calc WHERE calc_dt = '{end_date}'")
+                conn.execute(delete_sql)
+                print(f"🗑️  已删除calc_dt={end_date}的历史数据")
+
+                # 写入新数据
+                stock_data.to_sql(
+                    name='stock_detail_calc',
+                    con=conn,
+                    schema='stock',
+                    if_exists='append',  # 追加（已删过，无重复）
+                    index=False,
+                    chunksize=1000  # 分批写入，避免大数据量超时
+                )
+                trans.commit()  # 提交事务
+                print(f"✅ 成功写入{len(stock_data)}条数据到stock.stock_detail_calc（calc_dt={end_date}）")
+            except Exception as e:
+                trans.rollback()  # 失败回滚
+                raise e
+            finally:
+                conn.close()
+
+    except Exception as e:
+        print(f"❌ 写入MySQL失败：{str(e)}")
+        raise e  # 抛出异常，方便外层捕获（可选）
 
 # 调用函数，执行策略并导出结果
 if __name__ == "__main__":
 
     start_date = '2025-12-01'
+    # end_date = '2026-03-13'
     end_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
 
     # 执行策略，获取符合条件的目标天数据
     stock_valid_target = process_stock_full_strategy_with_return_target(start_date, end_date)
@@ -242,3 +314,8 @@ if __name__ == "__main__":
             encoding='utf-8-sig'
         )
         print(f"\nCSV文件导出成功！保存路径：{csv_file_path}")
+
+        # 新增：调用写入MySQL函数
+        insert_data_to_mysql(stock_valid_target, end_date)
+    else:
+        print("\n❌ 无有效数据，跳过CSV导出和MySQL写入")
