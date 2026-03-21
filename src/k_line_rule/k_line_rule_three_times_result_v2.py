@@ -294,7 +294,7 @@ def insert_data_to_mysql(stock_valid_target, end_date):
 if __name__ == "__main__":
 
     start_date = '2025-12-01'
-    # end_date = '2026-03-13'
+    # end_date = '2026-03-16'
     end_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
 
