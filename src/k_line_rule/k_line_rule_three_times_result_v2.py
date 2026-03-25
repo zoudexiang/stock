@@ -1,5 +1,6 @@
 import pandas as pd
 import datetime
+import time
 from sqlalchemy import create_engine, text
 
 from src.utils import constants
@@ -297,6 +298,7 @@ if __name__ == "__main__":
     # end_date = '2026-03-16'
     end_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
+    start = time.time()
 
     # 执行策略，获取符合条件的目标天数据
     stock_valid_target = process_stock_full_strategy_with_return_target(start_date, end_date)
@@ -319,3 +321,13 @@ if __name__ == "__main__":
         insert_data_to_mysql(stock_valid_target, end_date)
     else:
         print("\n❌ 无有效数据，跳过CSV导出和MySQL写入")
+
+    end = time.time()
+    cost_seconds = start - end
+
+    # 4. 转成分钟（1分钟=60秒）
+    cost_minutes = cost_seconds / 60
+
+    # 5. 输出结果（美观格式）
+    print(f"耗时：{cost_seconds:.2f} 秒")
+    print(f"耗时：{cost_minutes:.2f} 分钟")
