@@ -323,7 +323,7 @@ if __name__ == "__main__":
         print("\n❌ 无有效数据，跳过CSV导出和MySQL写入")
 
     end = time.time()
-    cost_seconds = start - end
+    cost_seconds = end - start
 
     # 4. 转成分钟（1分钟=60秒）
     cost_minutes = cost_seconds / 60
