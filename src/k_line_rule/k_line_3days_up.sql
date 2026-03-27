@@ -9,6 +9,8 @@ with step1 as (
         case when price_close >= price_open then 1 else 0 end as is_up
     from stock_detail
     where dt>='2026-03-02'
+        and code not like '688%'
+        and upper(stock_name) not like 'ST'
 ),
 step2 as (
     -- 第二步：用窗口函数生成行号，用于「连续日期分组」
