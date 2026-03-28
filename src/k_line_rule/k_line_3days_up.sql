@@ -43,7 +43,7 @@ final_result as (
         dst.industry_detail
     from step3 s3
     left join dim_stock_tag dst
-        on s3.code = replace(replace(dst.code, 'sz', ''), 'sh', '')  -- 用股票代码关联维表
+        on s3.code = replace(replace(lower(dst.code), 'sz', ''), 'sh', '')  -- 用股票代码关联维表
 )
 -- 最终查询结果
 select * from final_result
