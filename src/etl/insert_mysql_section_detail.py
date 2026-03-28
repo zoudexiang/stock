@@ -47,7 +47,7 @@ def import_xls_to_section_detail(xls_file_path, dt, db_config):
     """
     # 1. 定义字段映射关系（Excel列名 → MySQL表字段）
     field_mapping = {
-        '版块名称': 'section_name',
+        '板块名称': 'section_name',
         '涨幅': 'rise',
         '1分钟涨速': 'rise_1min',
         '4分钟涨速': 'rise_4min',
