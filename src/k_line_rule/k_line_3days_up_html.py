@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import warnings
 from io import BytesIO
 import base64
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from concurrent.futures import ThreadPoolExecutor
 
 from src.utils import constants
@@ -233,5 +233,76 @@ def generate_html():
     print("✅ 完成！文件已生成：连续3天上涨股票K线图.html")
 
 
+def update_stock_3days_up(today):
+    # 1. 清空表
+    sql_truncate = "TRUNCATE TABLE stock_3days_up;"
+
+    # 2. 插入数据（你的完整SQL）
+    sql_insert = f"""
+    insert into stock.stock_3days_up
+    with step1 as (
+        select
+            dt,
+            code,
+            stock_name,
+            price_close,
+            price_open,
+            case when price_close >= price_open then 1 else 0 end as is_up
+        from stock_detail
+        where dt>='2026-03-02'
+            and code not like '688%%'
+            and upper(stock_name) not like 'ST'
+    ),
+    step2 as (
+        select
+            *,
+            row_number() over (partition by code order by dt) as rn,
+            row_number() over (partition by code, is_up order by dt) as rn_up
+        from step1
+    ),
+    step3 as (
+        select
+            code,
+            max(stock_name) as stock_name,
+            count(*) as number_of_consecutive_days,
+            max(dt) as end_dt
+        from step2
+        where is_up = 1
+        group by code, rn - rn_up
+        having count(*) >= 3
+           and max(dt) = '{today}'
+    ),
+    final_result as (
+        select
+            s3.code,
+            s3.stock_name,
+            s3.number_of_consecutive_days,
+            dst.industry,
+            dst.industry_detail
+        from step3 s3
+        left join dim_stock_tag dst
+            on s3.code = replace(replace(lower(dst.code), 'sz', ''), 'sh', '')
+    )
+    select * from final_result
+    order by number_of_consecutive_days desc;
+    """
+
+    # ========== 执行 SQL ==========
+    with engine.connect() as conn:
+        print("正在清空表 stock_3days_up...")
+        conn.execute(text(sql_truncate))
+
+        print("正在插入连续3天上涨股票数据...")
+        conn.execute(text(sql_insert))
+
+        conn.commit()  # 提交事务（必须加！）
+
+    print("✅ 两条SQL执行完成！")
+
 if __name__ == "__main__":
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    update_stock_3days_up(today)
+
     generate_html()
