@@ -51,7 +51,7 @@ def load_all_data():
 
     # 只保留最近 2 个月
     last_date = df_k_all["dt"].max()
-    start_date = last_date - pd.DateOffset(months=2)
+    start_date = last_date - pd.DateOffset(months=3)
     df_k_all = df_k_all[df_k_all["dt"] >= start_date].copy()
 
     # ====================== ✅ 强制修复：平盘 Open == Close → 变红 ======================
