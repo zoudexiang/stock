@@ -1,3 +1,4 @@
+insert into stock_3days_up
 with step1 as (
     -- 第一步：标记每天是否满足「收盘价 ≥ 开盘价」
     select
