@@ -59,7 +59,7 @@ create table stock_3days_up (
 );
 
 -- 连续三天阴线
-create table stock_3days_dwon (
+create table stock_3days_down (
     code varchar(6) comment '股票代码',
     stock_name varchar(100) comment '股票名称',
     number_of_consecutive_days int comment '连续天数',
