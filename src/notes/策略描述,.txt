@@ -1,0 +1,345 @@
+
+现有 mysql 建表语句如下，这张表是每天大 A 股市每个交易日每只股票的每日数据情况，表中字段情况和描述如下
+
+create table stock.stock_detail (
+    dt varchar(10)                  comment '日期，格式 yyyy-MM-dd',
+    code varchar(6)                 comment '股票代码',
+    price_open double               comment '开盘价',
+    price_close double              comment '收盘价',
+    price_highest double            comment '最高价',
+    price_lowest double             comment '最低价',
+    trade double                    comment '成交量(总手)',
+    trade_amount double             comment '成交额',
+    amplitude double                comment '振幅',
+    rise double                     comment '收盘涨幅',
+    amount_increase_decrease double comment '涨跌额',
+    turnover_rate double            comment '换手率',
+    stock_code varchar(6)           comment '股票代码',
+    stock_name varchar(100)         comment '股票名称'
+);
+
+
+表中现在有 2025-01-01 ~ 2026-01-16 范围的数据，现在我给出一个策略，请帮我依据这个策略，帮我写出一个 sql，将符合策略的股票帮我筛选出来
+
+策略规则：
+1、在开始日期和结束日期范围内，单只股票从开始日期算起，突然有一天的成交额是前五日的成交额平均值的三倍以上，且(收盘价 - 开盘价)>0, 股票中的术语也就是当天收阳线，我把这一天称为目标天，
+2、计算出目标天后，以目标天为起始日期，观察后面3天是否有成交额比目标天还大的，如果有，取最大一天成交额的为分歧天，如果没有，目标天就是分歧天，
+3、现在基于分歧天的数据定义一个概念，最高实体价(disagreementMaxPrice)，如果开盘价>收盘价，则 disagreementMaxPrice=开盘价，否则 disagreementMaxPrice=收盘价，
+4、基于分歧天往后找该股票下一次达到最高实体价的该股票日期及对应的数据（下一次达到最高实体价：因为后续的交易日有可能有多天都达到最高实体价，我们这里只要找到第一次达到即可），如果能找到符合的数据，把这一天称为，“返回目标天”，要求“返回目标天”和“目标天”至少有2个交易日间隔（计算过程中，请注意节假日和周六日），且“返回目标天”和“目标天”之间日期的收盘价不能高于 disagreementMaxPrice
+
+现在基于以上4条规则，帮我查询出符合以上策略规则的股票数据，一个股票只输出目标天的数据信息即可，不要求输出其他天的数据信息（其他天的数据信息只是为了帮我筛选出目标天的中间过程数据，因为有可能筛选出很多目标天，但是有部分是不满足分歧天和规则的），
+
+
+我这里也举出一个股票历史数据的例子，以东方通信这个股票举例，从 2025-12-01 ~ 2026-01-16 的收盘后核心数据如下，以逗号分割字段值，第一行为列名。
+
+dt,code,price_open,price_close,price_highest,price_lowest,trade,trade_amount,amplitude,rise,amount_increase_decrease,turnover_rate,stock_code,stock_name
+2025-12-01,600776,13.75,13.8,13.87,13.63,308295,424046798,1.75,0.51,0.07,3.22,600776,东方通信
+2025-12-02,600776,13.74,13.59,13.77,13.57,241360,328793700,1.45,-1.52,-0.21,2.52,600776,东方通信
+2025-12-03,600776,13.52,13.38,13.58,13.19,219913,293665943,2.87,-1.55,-0.21,2.3,600776,东方通信
+2025-12-04,600776,13.38,13.41,13.53,13.27,181504,242839468,1.94,0.22,0.03,1.9,600776,东方通信
+2025-12-05,600776,13.46,13.45,13.54,13.22,171962,229981275,2.39,0.3,0.04,1.8,600776,东方通信
+2025-12-08,600776,13.5,13.9,14.05,13.48,399462,554529289,4.24,3.35,0.45,4.18,600776,东方通信
+2025-12-09,600776,13.8,13.72,14.04,13.68,230202,318482117,2.59,-1.29,-0.18,2.41,600776,东方通信
+2025-12-10,600776,13.74,13.84,13.88,13.59,218212,299664298,2.11,0.87,0.12,2.28,600776,东方通信
+2025-12-11,600776,13.84,14.63,15.22,13.72,911058,1321688915,10.84,5.71,0.79,9.53,600776,东方通信
+2025-12-12,600776,14.99,16.09,16.09,14.88,355911,561891502,8.27,9.98,1.46,3.72,600776,东方通信
+2025-12-15,600776,17.11,15.93,17.11,15.45,1415062,2301041502,10.32,-0.99,-0.16,14.8,600776,东方通信
+2025-12-16,600776,15.9,16.29,16.8,15.11,1139655,1828766510,10.61,2.26,0.36,11.92,600776,东方通信
+2025-12-17,600776,15.68,15.41,16.24,15.27,801384,1252623974,5.95,-5.4,-0.88,8.38,600776,东方通信
+2025-12-18,600776,15.25,15.19,15.67,15,601709,925309259,4.35,-1.43,-0.22,6.29,600776,东方通信
+2025-12-19,600776,15.15,15.03,15.58,14.84,544580,820552039,4.87,-1.05,-0.16,5.7,600776,东方通信
+2025-12-22,600776,15.06,15.48,15.86,14.8,777128,1203105235,7.05,2.99,0.45,8.13,600776,东方通信
+2025-12-23,600776,15.33,15.22,16.02,15.05,664121,1028042707,6.27,-1.68,-0.26,6.95,600776,东方通信
+2025-12-24,600776,14.91,15.16,15.35,14.76,498498,749455366,3.88,-0.39,-0.06,5.21,600776,东方通信
+2025-12-25,600776,15.13,15.83,16.1,15.05,606612,955004751,6.93,4.42,0.67,6.35,600776,东方通信
+2025-12-26,600776,15.67,15.85,16.08,15.46,609476,963776764,3.92,0.13,0.02,6.38,600776,东方通信
+2025-12-29,600776,15.76,15.35,15.76,15.3,390005,602838502,2.9,-3.15,-0.5,4.08,600776,东方通信
+2025-12-30,600776,15.2,16.89,16.89,15.2,722251,1196758385,11.01,10.03,1.54,7.55,600776,东方通信
+2025-12-31,600776,17,16.5,17,15.94,1043271,1706502737,6.28,-2.31,-0.39,10.91,600776,东方通信
+2026-01-05,600776,16.77,18.15,18.15,16.49,1046931,1849643169,10.06,10,1.65,10.95,600776,东方通信
+2026-01-06,600776,18.11,18.6,19.6,17.67,1227657,2265061109,10.63,2.48,0.45,12.84,600776,东方通信
+2026-01-07,600776,18.1,18.35,19.53,18.03,1039629,1943724504,8.06,-1.34,-0.25,10.87,600776,东方通信
+2026-01-08,600776,18.1,18.5,18.7,17.79,819965,1500340093,4.96,0.82,0.15,8.58,600776,东方通信
+2026-01-09,600776,18.5,20.35,20.35,18.23,1117748,2159425367,11.46,10,1.85,11.69,600776,东方通信
+2026-01-12,600776,22.39,22.39,22.39,22.39,76150,170499111,0,10.02,2.04,0.8,600776,东方通信
+2026-01-13,600776,24.63,24.63,24.63,22.95,1446548,3533719430,7.5,10,2.24,15.13,600776,东方通信
+2026-01-14,600776,25.57,26.1,27.09,23.47,2262951,5757826740,14.7,5.97,1.47,23.67,600776,东方通信
+2026-01-15,600776,23.49,23.49,23.49,23.49,102065,239750685,0,-10,-2.61,1.07,600776,东方通信
+2026-01-16,600776,21.14,21.14,21.14,21.14,68491,144789974,0,-10,-2.35,0.72,600776,东方通信
+
+
+在这个例子中，可以看到 2025-12-11 日的成交额是前五个交易日平均值的三倍，所以 2025-12-11 是目标日，而 2025-12-15 的成交额比 2025-12-11 还多，所以 2025-12-15 是分歧日，2026-01-05 收盘价达到最高实体价（2025-12-15 的收盘价），所以 2026-01-05 返回目标天
+通过这个 demo 的数据，将以上的策略规则做一个侧面的补充描述，在最后输出数据时，也只需要产出 2025-12-11 的具体信息即可
+
+请帮我找出每只股票符合这种策略规则的股票， 数据输出还是按照上述 mysql 表的字段结构来
+帮分别使用 mysql 和纯 python 代码实现
+
+replace(replace('920001', 'SZ', ''), 'SH', '') as clean_code
+
+
+
+
+
+
+
+
+分歧量：3倍量的当天，如果后续有超过这天的成交额，就代表是后续的那天是分歧量，否则3倍量的当天就是分歧量
+3倍量过前五，
+缩量回调1/2以上是长回调(长洗盘)，
+不缩量回调1/2以上是短回调(短洗盘)，
+
+连续拉涨，出现放量大阴线，如果后续没有反包，说明要回调，回调到放量大阴线 1/2 处算是差不多了，可以上车，做个先手
+
+
+
+》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》
+                                                            调整后的描述策略
+》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》》
+
+
+现有 mysql 建表语句如下，这张表是每天大 A 股市每个交易日每只股票的每日数据情况，表中字段情况和描述如下
+
+create table stock.stock_detail (
+    dt varchar(10)                  comment '日期，格式 yyyy-MM-dd',
+    code varchar(6)                 comment '股票代码',
+    price_open double               comment '开盘价',
+    price_close double              comment '收盘价',
+    price_highest double            comment '最高价',
+    price_lowest double             comment '最低价',
+    trade double                    comment '成交量(总手)',
+    trade_amount double             comment '成交额',
+    amplitude double                comment '振幅',
+    rise double                     comment '收盘涨幅',
+    amount_increase_decrease double comment '涨跌额',
+    turnover_rate double            comment '换手率',
+    stock_code varchar(6)           comment '股票代码',
+    stock_name varchar(100)         comment '股票名称'
+);
+
+
+表中现在有 2025-01-01 ~ 2026-01-16 范围的数据，现在我给出一个策略，请帮我依据这个策略，帮我写出一个 sql，将符合策略的股票帮我筛选出来
+
+策略规则：
+在开始日期和结束日期范围内，单只股票从开始日期算起，突然有一天的成交额是前五日的成交额平均值的三倍以上，且(收盘价 - 开盘价)>0, 股票中的术语也就是当天收阳线，我把这一天称为目标天，
+基于目标天往后找该股票下一次达到目标天收盘价的该股票日期及对应的数据，如果能找到符合的数据，把这一天称为，返回目标天，要求返回目标天和目标天至少有2天的日期差
+
+一个股票在开始日期和结束日期范围内可以有多个，有点类似于动态窗口的概念，
+
+
+请帮我找出每只股票符合这种策略规则的股票， 数据输出还是按照上述 mysql 表的字段结构来
+帮我使用 python 代码实现
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+现有 mysql 表如下，为每日大 A 收盘后个股的数据信息
+
+create table stock.stock_detail (
+    dt varchar(10)                  comment '日期，格式 yyyy-MM-dd',
+    code varchar(6)                 comment '股票代码',
+    stock_name varchar(100)         comment '股票名称',
+    price_open double               comment '开盘价',
+    price_close double              comment '收盘价',
+    price_highest double            comment '最高价',
+    price_lowest double             comment '最低价',
+    trade double                    comment '成交量(总手)',
+    trade_amount double             comment '成交额',
+    amplitude double                comment '振幅',
+    rise double                     comment '收盘涨幅',
+    amount_increase_decrease double comment '涨跌额',
+    turnover_rate double            comment '换手率'
+);
+
+依据上面字段，请帮我找出自从 2025-12-01 后，市场上比较有知名度，有关注度，涨幅较大，且截止到 2026-03-20 有一定的下跌的股票，最好是在股市中有 M 形结构的股票，
+我的思路是想低吸，坚决拒绝追高
+
+帮我找出这样的股票
+
+
+
+
+
+
+
+
+
+-- 步骤1：获取每只股票在2025-12-01 ~ 2026-03-20期间的关键价格（首日收盘价、阶段高点、高点日期）
+with stock_price_base as (
+    select
+        code,
+        stock_name,
+        -- 2025-12-01的收盘价（基准价）
+        max(case when dt = '2025-12-01' then price_close end) as base_price,
+        -- 阶段最高价（2025-12-01 ~ 2026-03-20）
+        max(price_close) as high_price,
+        -- 阶段高点对应的日期
+        substring_index(group_concat(dt order by price_close desc), ',', 1) as high_date,
+        -- 2026-03-20的收盘价（最新价）
+        max(case when dt = '2026-03-20' then price_close end) as latest_price
+    from stock.stock_detail
+    where dt between '2025-12-01' and '2026-03-20'
+      and stock_name not like '%st%'  -- 剔除st股
+      and code not like '688%'        -- 可选：剔除科创板
+      and code not like '83%'         -- 可选：剔除北交所
+    group by code, stock_name
+    having base_price is not null and high_price is not null and latest_price is not null
+),
+-- 步骤2：筛选阶段大涨（≥30%）且近期回落（≥15%）的股票
+stock_rise_fall as (
+    select
+        *,
+        -- 阶段涨幅（基准价→高点）
+        round((high_price - base_price) / base_price * 100, 2) as rise_rate,
+        -- 回落幅度（高点→最新价）
+        round((latest_price - high_price) / high_price * 100, 2) as fall_rate
+    from stock_price_base
+    where (high_price - base_price) / base_price >= 0.3  -- 阶段涨幅≥30%
+      and (latest_price - high_price) / high_price <= -0.15  -- 回落≥15%
+)
+-- 查看初步筛选结果
+select * from stock_rise_fall order by rise_rate desc, fall_rate asc limit 50;
+
+
+
+
+
+
+
+
+-- 最终版：筛选大涨+回落+m形结构的股票
+with stock_daily as (
+    -- 基础数据：每日收盘价+日期排序
+    select
+        code,
+        stock_name,
+        dt,
+        price_close,
+        -- 给每只股票的交易日按时间排序（方便找前后价格）
+        row_number() over (partition by code order by dt) as rn
+    from stock.stock_detail
+    where dt between '2025-12-01' and '2026-03-20'
+      and stock_name not like '%st%'
+      and code not like '688%'
+      and code not like '83%'
+),
+-- 步骤1：找每只股票的前两个高点（m形的两个顶）
+stock_high_points as (
+    select
+        code,
+        stock_name,
+        -- 第一个高点（价格）
+        max(case when rn_high = 1 then price_close end) as high1_price,
+        -- 第一个高点日期
+        max(case when rn_high = 1 then dt end) as high1_dt,
+        -- 第二个高点（价格）
+        max(case when rn_high = 2 then price_close end) as high2_price,
+        -- 第二个高点日期
+        max(case when rn_high = 2 then dt end) as high2_dt
+    from (
+        select
+            code,
+            stock_name,
+            dt,
+            price_close,
+            -- 对每只股票的收盘价降序排序，取前两个高点
+            row_number() over (partition by code order by price_close desc) as rn_high
+        from stock_daily
+    ) t
+    where rn_high <= 2
+    group by code, stock_name
+    having high1_price is not null and high2_price is not null
+),
+-- 步骤2：验证m形结构+大涨+回落
+final_stock as (
+    select
+        hp.*,
+        -- m形验证1：两个高点价差≤5%（几乎持平，形成m顶）
+        round(abs(high1_price - high2_price) / high1_price * 100, 2) as high_price_diff,
+        -- 阶段涨幅（2025-12-01收盘价→高点）
+        round((hp.high1_price - sd.base_price) / sd.base_price * 100, 2) as rise_rate,
+        -- 回落幅度（高点→2026-03-20收盘价）
+        round((sd.latest_price - hp.high1_price) / hp.high1_price * 100, 2) as fall_rate,
+        sd.base_price,
+        sd.latest_price
+    from stock_high_points hp
+    -- 关联基准价和最新价
+    left join (
+        select
+            code,
+            max(case when dt = '2025-12-01' then price_close end) as base_price,
+            max(case when dt = '2026-03-20' then price_close end) as latest_price
+        from stock_daily
+        group by code
+    ) sd on hp.code = sd.code
+    -- m形结构条件：
+    where abs(hp.high1_price - hp.high2_price) / hp.high1_price <= 0.05  -- 两个高点价差≤5%
+      and (hp.high1_price - sd.base_price) / sd.base_price >= 0.3        -- 阶段涨幅≥30%
+      and (sd.latest_price - hp.high1_price) / hp.high1_price <= -0.15   -- 回落≥15%
+      -- 确保第二个高点在第一个高点之后（m形是先涨→回调→再涨→跌）
+      and str_to_date(hp.high2_dt, '%y-%m-%d') > str_to_date(hp.high1_dt, '%y-%m-%d')
+)
+-- 最终结果：按涨幅从高到低、回落幅度从大到小排序（优先选涨幅大、回落多的）
+select
+    code as 股票代码,
+    stock_name as 股票名称,
+    base_price as 20251201收盘价,
+    high1_price as 第一高点价格,
+    high1_dt as 第一高点日期,
+    high2_price as 第二高点价格,
+    high2_dt as 第二高点日期,
+    high_price_diff as 两高点价差百分比,
+    rise_rate as 阶段涨幅百分比,
+    fall_rate as 回落幅度百分比,
+    latest_price as 20260320收盘价
+from final_stock
+order by rise_rate desc, fall_rate asc
+limit 100;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
