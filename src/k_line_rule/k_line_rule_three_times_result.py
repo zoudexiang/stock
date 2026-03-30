@@ -309,13 +309,13 @@ if __name__ == "__main__":
         print(stock_valid_target.head(10))
 
         # 导出CSV（解决中文乱码）
-        csv_file_path = f"../file/k_line_three_times_result_v2_{end_date}.csv"
-        stock_valid_target.to_csv(
-            csv_file_path,
-            index=False,
-            encoding='utf-8-sig'
-        )
-        print(f"\nCSV文件导出成功！保存路径：{csv_file_path}")
+        # csv_file_path = f"../file/k_line_three_times_result_v2_{end_date}.csv"
+        # stock_valid_target.to_csv(
+        #     csv_file_path,
+        #     index=False,
+        #     encoding='utf-8-sig'
+        # )
+        # print(f"\nCSV文件导出成功！保存路径：{csv_file_path}")
 
         # 新增：调用写入MySQL函数
         insert_data_to_mysql(stock_valid_target, end_date)
