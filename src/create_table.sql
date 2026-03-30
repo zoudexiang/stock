@@ -1,9 +1,11 @@
+-- 股票行业维表
 CREATE TABLE `dim_stock_tag` (
   `code` varchar(20) DEFAULT NULL COMMENT '股票代码',
   `industry` varchar(100) DEFAULT NULL COMMENT '所属行业',
   `industry_detail` varchar(100) DEFAULT NULL COMMENT '细分行业'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 板块详情表（日级别收盘后）
 CREATE TABLE `section_detail` (
   `dt` varchar(10) DEFAULT NULL COMMENT '日期，格式 yyyy-MM-dd',
   `section_name` varchar(100) DEFAULT NULL COMMENT '版块名称',
@@ -30,6 +32,7 @@ CREATE TABLE `section_detail` (
   `trading_market_capitalization` double DEFAULT NULL COMMENT '流通市值'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 个股详情表（日级别收盘后）
 CREATE TABLE `stock_detail` (
   `dt` varchar(10) DEFAULT NULL COMMENT '日期，格式 yyyy-MM-dd',
   `code` varchar(6) DEFAULT NULL COMMENT '股票代码',
@@ -45,3 +48,21 @@ CREATE TABLE `stock_detail` (
   `amount_increase_decrease` double DEFAULT NULL COMMENT '涨跌额',
   `turnover_rate` double DEFAULT NULL COMMENT '换手率'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 连续三天阳线
+create table stock_3days_up (
+    code varchar(6) comment '股票代码',
+    stock_name varchar(100) comment '股票名称',
+    number_of_consecutive_days int comment '连续天数',
+    industry varchar(100) comment '所属行业',
+    industry_detail varchar(100)  comment '细分行业'
+);
+
+-- 连续三天阴线
+create table stock_3days_dwon (
+    code varchar(6) comment '股票代码',
+    stock_name varchar(100) comment '股票名称',
+    number_of_consecutive_days int comment '连续天数',
+    industry varchar(100) comment '所属行业',
+    industry_detail varchar(100)  comment '细分行业'
+);
