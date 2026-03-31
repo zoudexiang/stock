@@ -227,7 +227,7 @@ def generate_html():
     </body></html>
     '''
 
-    with open(f"""../html/{datetime.now().strftime("%Y-%m-%d")}_连续3天上涨股票K线图1.html""", "w", encoding="utf-8") as f:
+    with open(f"""../html/{datetime.now().strftime("%Y-%m-%d")}_连续3天上涨股票K线图.html""", "w", encoding="utf-8") as f:
         f.write(html)
 
     print("✅ 完成！文件已生成：连续3天上涨股票K线图.html")

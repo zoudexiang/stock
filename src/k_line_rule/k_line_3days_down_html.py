@@ -122,12 +122,12 @@ def generate_html():
 
     print("🌍 生成HTML...")
 
-    html = '''
+    html = """
     <!DOCTYPE html>
     <html lang="zh-CN">
     <head>
         <meta charset="UTF-8">
-        <title>连续3天下跌股票 K线图</title>
+        <title>连续 3 天下跌股票 K 线图</title>
         <style>
             *{box-sizing:border-box;margin:0;padding:0;font-family:Microsoft YaHei}
             body{background:#f5f7fa;padding:20px}
@@ -157,7 +157,7 @@ def generate_html():
     </head>
     <body>
         <div class="container">
-            <h1 class="title">📉 连续3天下跌股票 K线看板</h1>
+            <h1 class="title">📉 连续 3 天下跌股票 K 线看板</h1>
 
             <div class="col-switch">
                 <button class="col-btn" onclick="changeColumns(2)">2列</button>
@@ -168,7 +168,7 @@ def generate_html():
 
             <div class="tab-wrap">
                 <div class="tabs">
-    '''
+    """
 
     # 行业TAB（带数量）
     for i, ind in enumerate(industries):
