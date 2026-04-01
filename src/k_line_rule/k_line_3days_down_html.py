@@ -62,7 +62,7 @@ def load_all_data():
 
     # ✅ 正确计算涨幅：rise * 100 转为百分比，并保留2位小数
     price_map = last_data["Close"].round(2).to_dict()
-    rise_map = (last_data["rise"] * 100).round(2).to_dict()
+    rise_map = (last_data["rise"]).round(2).to_dict()
 
     return df_up, df_k_all, price_map, rise_map
 
