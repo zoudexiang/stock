@@ -146,10 +146,10 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
                                     price_lowest,
                                     trade,
                                     trade_amount,
-                                    amplitude,
-                                    rise,
+                                    round(amplitude * 100, 2) as amplitude,
+                                    round(rise * 100, 2) as rise,
                                     amount_increase_decrease,
-                                    turnover_rate
+                                    round(turnover_rate * 100, 2) as turnover_rate
                                 from stock.stock_detail_tmp;
                                 """)
                 conn.execute(insert_sql)
