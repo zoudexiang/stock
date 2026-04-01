@@ -40,7 +40,7 @@ def load_all_data():
 
     sql_all_k = f"""
         SELECT dt, code, price_open AS Open, price_close AS Close,
-               price_highest AS High, price_lowest AS Low, trade AS Volume, rise
+               price_highest AS High, price_lowest AS Low, trade_amount AS Volume, rise
         FROM stock_detail
         WHERE code IN ({placeholders})
         ORDER BY code, dt ASC

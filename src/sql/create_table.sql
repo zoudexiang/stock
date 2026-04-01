@@ -103,3 +103,8 @@ CREATE TABLE `stock_detail_calc_backtracking` (
   `amount_increase_decrease` double DEFAULT NULL COMMENT '涨跌额',
   `turnover_rate` double DEFAULT NULL COMMENT '换手率'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+UPDATE stock.stock_detail
+SET rise = round(rise*100, 2), turnover_rate = round(turnover_rate*100, 2), amplitude = round(amplitude*100, 2)
+WHERE dt >= '2026-03-16';
