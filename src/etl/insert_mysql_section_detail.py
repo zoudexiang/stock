@@ -18,12 +18,12 @@ warnings.filterwarnings('ignore')  # 忽略Excel读取的无关警告
 #     main_force double               comment '主力净量',
 #     main_force_amount double        comment '主力金额',
 #     up_num int                      comment '涨停数',
-#     add_num int                     comment '涨家数',
+#     add_num int                      comment '涨家数',
 #     down_num int                    comment '跌家数',
 #     leader_stock varchar(100)       comment '领涨股',
 #     rise_5day double                comment '5日涨幅',
 #     rise_10day double               comment '10日涨幅',
-#     rise_20day double               comment '20日涨幅',
+#     rise_20day double                comment '20日涨幅',
 #     concept_parse varchar(1000)     comment '概念解析',
 #     create_date varchar(100)        comment '创建日期',
 #     from_year double                comment '年初至今',
@@ -99,6 +99,10 @@ def import_xls_to_section_detail(xls_file_path, dt, db_config):
 
         # 筛选数据并按映射关系重命名
         df_clean = df[valid_excel_cols].rename(columns=field_mapping)
+
+        # ====================== ✅ 核心新增：过滤 ratio 为 '--' 的数据 ======================
+        print(f"📊 过滤前数据行数：{len(df_clean)}")
+        df_clean = df_clean[df_clean["ratio"] != "--"]  # 过滤量比为 -- 的行
 
         # 补充 dt 字段（当前系统日期）
         df_clean['dt'] = dt
