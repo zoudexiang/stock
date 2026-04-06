@@ -34,7 +34,10 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
         '振幅': 'amplitude',
         '涨幅': 'rise',
         '涨跌': 'amount_increase_decrease',
-        '换手': 'turnover_rate'
+        '换手': 'turnover_rate',
+        '5日涨幅': 'rise_5',
+        '10日涨幅': 'rise_10',
+        '20日涨幅': 'rise_15'
     }
 
     # 2. 读取 Excel 文件（兼容 .xls 格式）
@@ -74,11 +77,21 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
             if mysql_col not in df_clean.columns:
                 df_clean[mysql_col] = None
 
-        # 按MySQL表字段顺序整理最终数据
+        # ====================== ✅ 核心：处理 -- 为 0 ======================
+        rise_cols = ['rise_5', 'rise_10', 'rise_15']
+        for col in rise_cols:
+            if col in df_clean.columns:
+                # 把 -- 替换成 0
+                df_clean[col] = df_clean[col].replace('--', 0)
+                # 转数字，无法转换的也填 0
+                df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce').fillna(0)
+
+        # 按MySQL表字段顺序整理（包含新增3列）
         final_mysql_cols = [
             'dt', 'code', 'stock_name', 'price_open', 'price_close',
             'price_highest', 'price_lowest', 'trade', 'trade_amount',
-            'amplitude', 'rise', 'amount_increase_decrease', 'turnover_rate'
+            'amplitude', 'rise', 'amount_increase_decrease', 'turnover_rate',
+            'rise_5', 'rise_10', 'rise_15'  # ✅ 新增3列
         ]
         df_final = df_clean[final_mysql_cols].copy()
 
@@ -149,7 +162,10 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
                                     round(amplitude * 100, 2) as amplitude,
                                     round(rise * 100, 2) as rise,
                                     amount_increase_decrease,
-                                    round(turnover_rate * 100, 2) as turnover_rate
+                                    round(turnover_rate * 100, 2) as turnover_rate,
+                                    round(rise_5 * 100, 2) as rise_5,
+                                    round(rise_10 * 100, 2) as rise_10,
+                                    round(rise_15 * 100, 2) as rise_15
                                 from stock.stock_detail_tmp;
                                 """)
                 conn.execute(insert_sql)
