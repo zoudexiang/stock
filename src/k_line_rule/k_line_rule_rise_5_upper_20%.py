@@ -74,6 +74,8 @@ def generate_rise5_html():
             s.code,
             s.stock_name,
             s.rise_5,
+            s.rise_10,
+            s.rise_15,
             s.price_close,
             s.rise,
             dst.industry,
@@ -209,12 +211,15 @@ def generate_rise5_html():
             price_str = f"({price}元)" if price else ""
             rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
             rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
-            rise5_str = f"5日涨幅: {rise5_val:.2f}%"
 
+            # ====================== ✅ 这里已强化：显示 5/10/15 日涨幅，全部红色 ======================
             html += f'''
             <div class="card">
                 <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}</div>
-                <div class="sub">{r["industry_detail"]} | {rise5_str}</div>
+                <div class="sub" style="color:red; font-weight:bold;">
+                    5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
+                </div>
+                <div class="sub">{r["industry_detail"]}</div>
                 <img src="{img}">
             </div>
             '''
