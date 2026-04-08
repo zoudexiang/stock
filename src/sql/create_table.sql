@@ -49,6 +49,10 @@ CREATE TABLE `stock_detail` (
   `turnover_rate` double DEFAULT NULL COMMENT '换手率'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+alter table stock_detail add rise_5 double comment '5日涨幅';
+alter table stock_detail add rise_10 double comment '10日涨幅';
+alter table stock_detail add rise_15 double comment '15日涨幅';
+
 -- 连续三天阳线
 create table stock_3days_up (
     code varchar(6) comment '股票代码',
