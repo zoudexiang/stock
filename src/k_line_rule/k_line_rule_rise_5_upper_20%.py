@@ -253,8 +253,8 @@ def generate_rise5_html():
 
 if __name__ == "__main__":
 
-    today = '2026-04-03'
-    # today = datetime.now().strftime("%Y-%m-%d")
+    # today = '2026-04-03'
+    today = datetime.now().strftime("%Y-%m-%d")
 
     # ✅ 新功能：5日涨幅 >20% 股票看板
     generate_rise5_html()
