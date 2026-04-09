@@ -293,8 +293,8 @@ if __name__ == "__main__":
     # dt = '2026-03-20'
     dt = datetime.datetime.now().strftime("%Y-%m-%d")
     print(f"📅 本次导入的 dt 字段值：{dt}")
-    # import_xls_to_stock_detail_tmp("C:\\Users\\HR\\Desktop\\工作簿1.xlsx", dt, constants.db_config)
-    import_xls_to_stock_detail_tmp("/Users/zdx/Desktop/工作簿1.xlsx", dt, constants.db_config)
+    import_xls_to_stock_detail_tmp("C:\\Users\\HR\\Desktop\\工作簿1.xlsx", dt, constants.db_config)
+    # import_xls_to_stock_detail_tmp("/Users/zdx/Desktop/工作簿1.xlsx", dt, constants.db_config)
     print(f"》》》》》》》》》》》》 开始执行操作 dim_stock_tag 逻辑 》》》》》》》》》》》》")
-    # import_xls_to_dim_stock_tag("C:\\Users\\HR\\Desktop\\工作簿1.xlsx", dt, constants.db_config)
-    import_xls_to_dim_stock_tag("/Users/zdx/Desktop/工作簿1.xlsx", dt, constants.db_config)
+    import_xls_to_dim_stock_tag("C:\\Users\\HR\\Desktop\\工作簿1.xlsx", dt, constants.db_config)
+    # import_xls_to_dim_stock_tag("/Users/zdx/Desktop/工作簿1.xlsx", dt, constants.db_config)
