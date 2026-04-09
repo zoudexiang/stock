@@ -53,6 +53,15 @@ alter table stock_detail add rise_5 double comment '5日涨幅';
 alter table stock_detail add rise_10 double comment '10日涨幅';
 alter table stock_detail add rise_15 double comment '15日涨幅';
 
+-- 连续两天阳线
+create table stock_2days_up (
+    code varchar(6) comment '股票代码',
+    stock_name varchar(100) comment '股票名称',
+    number_of_consecutive_days int comment '连续天数',
+    industry varchar(100) comment '所属行业',
+    industry_detail varchar(100)  comment '细分行业'
+);
+
 -- 连续三天阳线
 create table stock_3days_up (
     code varchar(6) comment '股票代码',
