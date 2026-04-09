@@ -33,6 +33,26 @@ CREATE TABLE `section_detail` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 个股详情表（日级别收盘后）
+CREATE TABLE `stock_detail_tmp` (
+  `dt` varchar(10) DEFAULT NULL COMMENT '日期，格式 yyyy-MM-dd',
+  `code` varchar(6) DEFAULT NULL COMMENT '股票代码',
+  `stock_name` varchar(100) DEFAULT NULL COMMENT '股票名称',
+  `price_open` double DEFAULT NULL COMMENT '开盘价',
+  `price_close` double DEFAULT NULL COMMENT '收盘价',
+  `price_highest` double DEFAULT NULL COMMENT '最高价',
+  `price_lowest` double DEFAULT NULL COMMENT '最低价',
+  `trade` double DEFAULT NULL COMMENT '成交量(总手)',
+  `trade_amount` double DEFAULT NULL COMMENT '成交额',
+  `amplitude` double DEFAULT NULL COMMENT '振幅',
+  `rise` double DEFAULT NULL COMMENT '收盘涨幅',
+  `amount_increase_decrease` double DEFAULT NULL COMMENT '涨跌额',
+  `turnover_rate` double DEFAULT NULL COMMENT '换手率',
+  `rise_5` double DEFAULT NULL COMMENT '5日涨幅',
+  `rise_10` double DEFAULT NULL COMMENT '10日涨幅',
+  `rise_15` double DEFAULT NULL COMMENT '15日涨幅'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 个股详情表（日级别收盘后）
 CREATE TABLE `stock_detail` (
   `dt` varchar(10) DEFAULT NULL COMMENT '日期，格式 yyyy-MM-dd',
   `code` varchar(6) DEFAULT NULL COMMENT '股票代码',
