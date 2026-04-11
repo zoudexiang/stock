@@ -66,12 +66,11 @@ CREATE TABLE `stock_detail` (
   `amplitude` double DEFAULT NULL COMMENT '振幅',
   `rise` double DEFAULT NULL COMMENT '收盘涨幅',
   `amount_increase_decrease` double DEFAULT NULL COMMENT '涨跌额',
-  `turnover_rate` double DEFAULT NULL COMMENT '换手率'
+  `turnover_rate` double DEFAULT NULL COMMENT '换手率',
+  `rise_5` double DEFAULT NULL COMMENT '5日涨幅',
+  `rise_10` double DEFAULT NULL COMMENT '10日涨幅',
+  `rise_15` double DEFAULT NULL COMMENT '15日涨幅'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-alter table stock_detail add rise_5 double comment '5日涨幅';
-alter table stock_detail add rise_10 double comment '10日涨幅';
-alter table stock_detail add rise_15 double comment '15日涨幅';
 
 -- 连续两天阳线
 create table stock_2days_up (
