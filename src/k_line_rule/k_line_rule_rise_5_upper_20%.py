@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import time
 import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
@@ -58,6 +59,13 @@ def fast_plot(df):
         return f"data:image/png;base64,{img}"
     except:
         return ""
+
+def process_one(code, df_k_all):
+    df = df_k_all[df_k_all["code"] == code].copy()
+    if len(df) < 5:
+        return code, ""
+    df.set_index("dt", inplace=True)
+    return code, fast_plot(df)
 
 # ======================================================================================
 # ✅【新增】5日涨幅 > 20% 股票策略 + HTML 生成（完全复用你的逻辑）
@@ -253,8 +261,15 @@ def generate_rise5_html():
 
 if __name__ == "__main__":
 
+    start_time = time.time()
+
     # today = '2026-04-03'
     today = datetime.now().strftime("%Y-%m-%d")
 
     # ✅ 新功能：5日涨幅 >20% 股票看板
     generate_rise5_html()
+
+    end_time = time.time()  # 程序结尾再记一下
+    cost_time = end_time - start_time
+
+    print(f"程序总耗时：{cost_time:.2f} 秒")
