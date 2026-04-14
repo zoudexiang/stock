@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import time
 import pandas as pd
 import mplfinance as mpf
 import matplotlib.pyplot as plt
@@ -7,7 +8,9 @@ import warnings
 from io import BytesIO
 import base64
 from sqlalchemy import create_engine, text
+from functools import partial
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 from src.utils import constants
 
@@ -94,6 +97,12 @@ def fast_plot(df):
     except:
         return ""
 
+def process_one(code, df_k_all):
+    df = df_k_all[df_k_all["code"] == code].copy()
+    if len(df) < 5:
+        return code, ""
+    df.set_index("dt", inplace=True)
+    return code, fast_plot(df)
 
 # -------------------- 并行绘图 --------------------
 def generate_html():
@@ -106,15 +115,12 @@ def generate_html():
     stock_image_map = {}
     print("🖼️ 开始批量绘图...")
 
-    def process_one(code):
-        df = df_k_all[df_k_all["code"] == code].copy()
-        if len(df) < 5:
-            return code, ""
-        df.set_index("dt", inplace=True)
-        return code, fast_plot(df)
+    # with ThreadPoolExecutor(max_workers=16) as executor:
+    #     results = list(executor.map(process_one, df_up["code"].unique()))
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
-        results = list(executor.map(process_one, df_up["code"].unique()))
+    with ProcessPoolExecutor(max_workers=14) as executor:
+        fn = partial(process_one, df_k_all=df_k_all)
+        results = list(executor.map(fn, df_up["code"].unique()))
 
     for code, img in results:
         stock_image_map[code] = img
@@ -227,7 +233,7 @@ def generate_html():
     </body></html>
     '''
 
-    with open(f"""../html/{datetime.now().strftime("%Y-%m-%d")}_连续2天上涨股票K线图.html""", "w", encoding="utf-8") as f:
+    with open(f"""../html/{datetime.now().strftime("%Y-%m-%d")}_连续 2 天上涨股票 K 线图.html""", "w", encoding="utf-8") as f:
         f.write(html)
 
     print("✅ 完成！文件已生成：连续2天上涨股票K线图.html")
@@ -301,8 +307,15 @@ def update_stock_2days_up(today):
 
 if __name__ == "__main__":
 
+    start_time = time.time()
+
     today = datetime.now().strftime("%Y-%m-%d")
 
     update_stock_2days_up(today)
 
     generate_html()
+
+    end_time = time.time()  # 程序结尾再记一下
+    cost_time = end_time - start_time
+
+    print(f"程序总耗时：{cost_time:.2f} 秒")
