@@ -113,7 +113,7 @@ def generate_html():
         df.set_index("dt", inplace=True)
         return code, fast_plot(df)
 
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=16) as executor:
         results = list(executor.map(process_one, df_up["code"].unique()))
 
     for code, img in results:
