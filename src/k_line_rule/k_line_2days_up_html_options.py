@@ -177,6 +177,7 @@ def generate_html(today):
                 </div>
                 <div class="switch-row">
                     <button class="btn market-btn active" onclick="filterMarket('all')">显示全部</button>
+                    <button class="btn market-btn" onclick="filterMarket('zb')">仅看主板</button>
                     <button class="btn market-btn" onclick="filterMarket('cyb')">仅看创业板</button>
                     <button class="btn market-btn" onclick="filterMarket('kcb')">仅看科创板</button>
                 </div>
@@ -212,13 +213,13 @@ def generate_html(today):
 
             title_html = f'{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}'
 
-            # 判断市场属性
+            # ====================== ✅ 核心改动：主板、创业板、科创板精准分类 ======================
             if code.startswith(('300', '301')):
                 mkt = "cyb"
             elif code.startswith('688'):
                 mkt = "kcb"
             else:
-                mkt = "other"
+                mkt = "zb"
 
             html += f'''
             <div class="card" data-market="{mkt}">
@@ -252,6 +253,7 @@ def generate_html(today):
                 document.querySelectorAll('.market-btn').forEach(btn => {
                     btn.classList.toggle('active', 
                         (mkt === 'all' && btn.innerText.includes('全部')) ||
+                        (mkt === 'zb' && btn.innerText.includes('主板')) ||
                         (mkt === 'cyb' && btn.innerText.includes('创业板')) ||
                         (mkt === 'kcb' && btn.innerText.includes('科创板'))
                     );
