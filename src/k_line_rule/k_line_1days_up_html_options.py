@@ -297,7 +297,7 @@ def generate_html(today):
     print(f"✅ 完成！文件已生成：{out_file}")
 
 
-def update_stock_2days_up(today):
+def update_stock_1days_up(today):
     # 1. 清空表
     sql_truncate = "TRUNCATE TABLE stock_1days_up;"
 
@@ -313,7 +313,7 @@ def update_stock_2days_up(today):
             price_open,
             case when price_close >= price_open then 1 else 0 end as is_up
         from stock_detail
-        where dt>='2026-03-02'
+        where dt>='2026-04-02'
             and upper(stock_name) not like '%%ST%%'
     ),
     step2 as (
@@ -332,7 +332,7 @@ def update_stock_2days_up(today):
         from step2
         where is_up = 1
         group by code, rn - rn_up
-        having count(*) >= 2
+        having count(*) >= 1
            and max(dt) = '{today}'
     ),
     final_result as (
@@ -364,10 +364,10 @@ def update_stock_2days_up(today):
 
 if __name__ == "__main__":
     start_time = time.time()
-    # today = '2026-05-06'
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = '2026-06-03'
+    # today = datetime.now().strftime("%Y-%m-%d")
 
-    update_stock_2days_up(today)
+    update_stock_1days_up(today)
     generate_html(today)
 
     end_time = time.time()
