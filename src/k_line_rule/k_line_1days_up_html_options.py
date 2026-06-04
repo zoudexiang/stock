@@ -380,8 +380,7 @@ def update_stock_1days_up(today):
 
 if __name__ == "__main__":
     start_time = time.time()
-    today = '2026-06-03'
-    # today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
 
     update_stock_1days_up(today)
     generate_html(today)
