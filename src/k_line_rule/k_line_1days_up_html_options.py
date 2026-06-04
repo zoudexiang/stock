@@ -176,7 +176,8 @@ def generate_html(today):
                     <button class="btn col-btn" onclick="changeColumns(5)">5列</button>
                 </div>
                 <div class="switch-row">
-                    <button class="btn market-btn active" onclick="filterMarket('all')">显示全部</button>
+                    <button class="btn day-btn" onclick="filterDays(1)">只看连续1天</button>
+                    <button class="btn day-btn active" onclick="filterDays(0)">显示全部</button>
                     <button class="btn market-btn" onclick="filterMarket('zb')">仅看主板</button>
                     <button class="btn market-btn" onclick="filterMarket('cyb')">仅看创业板</button>
                     <button class="btn market-btn" onclick="filterMarket('kcb')">仅看科创板</button>
@@ -206,6 +207,7 @@ def generate_html(today):
 
             price = price_map.get(code, "")
             rise_val = rise_map.get(code, 0.00)
+            days = int(r["number_of_consecutive_days"])
 
             price_str = f"({price} 元)" if price else ""
             rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
@@ -213,7 +215,6 @@ def generate_html(today):
 
             title_html = f'{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}'
 
-            # ====================== ✅ 核心改动：主板、创业板、科创板精准分类 ======================
             if code.startswith(('300', '301')):
                 mkt = "cyb"
             elif code.startswith('688'):
@@ -222,7 +223,7 @@ def generate_html(today):
                 mkt = "zb"
 
             html += f'''
-            <div class="card" data-market="{mkt}">
+            <div class="card" data-market="{mkt}" data-days="{days}">
                 <div class="stock-title">{title_html}</div>
                 <div class="sub">{r["industry_detail"]} | 连续{r["number_of_consecutive_days"]}天</div>
                 <img src="{img}">
@@ -234,6 +235,7 @@ def generate_html(today):
         <script>
             let currentColumns = 3;
             let currentMarket = 'all';
+            let currentDayFilter = 0; // 0=全部,1=只看1天
 
             function changeColumns(col) {
                 currentColumns = col;
@@ -246,10 +248,20 @@ def generate_html(today):
                 });
             }
 
+            // 过滤连续天数
+            function filterDays(day) {
+                currentDayFilter = day;
+                document.querySelectorAll('.day-btn').forEach(btn => {
+                    btn.classList.toggle('active', 
+                        (day === 1 && btn.innerText.includes('1天')) ||
+                        (day === 0 && btn.innerText.includes('全部'))
+                    );
+                });
+                refreshAllFilters();
+            }
+
             function filterMarket(mkt) {
                 currentMarket = mkt;
-
-                // 1. 更新按钮激活状态
                 document.querySelectorAll('.market-btn').forEach(btn => {
                     btn.classList.toggle('active', 
                         (mkt === 'all' && btn.innerText.includes('全部')) ||
@@ -258,23 +270,27 @@ def generate_html(today):
                         (mkt === 'kcb' && btn.innerText.includes('科创板'))
                     );
                 });
+                refreshAllFilters();
+            }
 
-                // 2. 遍历所有卡片，根据市场属性过滤
+            // 统一刷新：市场 + 天数 双重过滤
+            function refreshAllFilters() {
                 document.querySelectorAll('.tab-content').forEach((content, i) => {
                     let cards = content.querySelectorAll('.card');
                     let visibleCount = 0;
-
                     cards.forEach(card => {
                         let m = card.getAttribute('data-market');
-                        if (mkt === 'all' || m === mkt) {
+                        let d = parseInt(card.getAttribute('data-days') || 0);
+                        let showMarket = (currentMarket === 'all' || m === currentMarket);
+                        let showDay = (currentDayFilter === 0 || d === currentDayFilter);
+
+                        if (showMarket && showDay) {
                             card.style.display = 'block';
                             visibleCount++;
                         } else {
                             card.style.display = 'none';
                         }
                     });
-
-                    // 3. 动态更新 Tab 上的计数
                     let tabBtn = document.querySelector(`#tab-btn-${i} .cnt`);
                     if (tabBtn) tabBtn.innerText = visibleCount;
                 });
