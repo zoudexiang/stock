@@ -1,0 +1,374 @@
+from datetime import datetime
+import time
+import pandas as pd
+import mplfinance as mpf
+import matplotlib.pyplot as plt
+import warnings
+from io import BytesIO
+import base64
+from sqlalchemy import create_engine, text
+from functools import partial
+from concurrent.futures import ProcessPoolExecutor
+
+from src.utils import constants
+
+# ====================== 【只改这里】MySQL 配置 ======================
+MYSQL_HOST = constants.db_config['host']
+MYSQL_USER = constants.db_config['user']
+MYSQL_PASSWORD = constants.db_config['password']
+MYSQL_DB = constants.db_config['database']
+# ===================================================================
+
+# -------------------- 屏蔽警告 + 加速配置 --------------------
+warnings.filterwarnings("ignore")
+plt.set_loglevel("error")
+plt.rcParams['figure.max_open_warning'] = 0
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
+plt.rcParams['axes.unicode_minus'] = False
+
+# 数据库引擎
+engine = create_engine(
+    f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DB}?charset=utf8mb4"
+)
+
+
+# -------------------- 一次性加载所有K线数据 --------------------
+def load_all_data():
+    print("📥 加载所有K线数据...")
+    df_up = pd.read_sql("SELECT * FROM stock_1days_up", engine)
+    all_codes = df_up["code"].unique().tolist()
+
+    if not all_codes:
+        return df_up, pd.DataFrame(), {}, {}
+
+    placeholders = ",".join([f"'{c}'" for c in all_codes])
+
+    sql_all_k = f"""
+        SELECT dt, code, price_open AS Open, price_close AS Close,
+               price_highest AS High, price_lowest AS Low, trade_amount AS Volume, rise
+        FROM stock_detail
+        WHERE code IN ({placeholders})
+        ORDER BY code, dt ASC
+    """
+    df_k_all = pd.read_sql(sql_all_k, engine)
+    df_k_all["dt"] = pd.to_datetime(df_k_all["dt"])
+
+    # 只保留最近 3 个月
+    last_date = df_k_all["dt"].max()
+    start_date = last_date - pd.DateOffset(months=3)
+    df_k_all = df_k_all[df_k_all["dt"] >= start_date].copy()
+
+    # ====================== ✅ 强制修复：平盘 Open == Close → 变红 ======================
+    df_k_all.loc[df_k_all["Close"] == df_k_all["Open"], "Close"] += 0.0001
+
+    # 获取每只股票 最新收盘价 + 最新涨幅
+    last_data = df_k_all.sort_values("dt").groupby("code").last()[["Close", "rise"]]
+
+    price_map = last_data["Close"].round(2).to_dict()
+    rise_map = (last_data["rise"]).round(2).to_dict()
+
+    return df_up, df_k_all, price_map, rise_map
+
+
+# -------------------- A股风格：涨红跌绿 --------------------
+mc = mpf.make_marketcolors(
+    up='r',
+    down='g',
+    edge='inherit',
+    wick='inherit',
+    volume='inherit'
+)
+s_style = mpf.make_mpf_style(marketcolors=mc, gridstyle='')
+
+
+# -------------------- 极快绘图 --------------------
+def fast_plot(df):
+    try:
+        fig, ax = mpf.plot(
+            df, type="candle", volume=True, style=s_style,
+            figratio=(10, 5), figscale=0.7,
+            returnfig=True
+        )
+        buf = BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=80)
+        buf.seek(0)
+        img = base64.b64encode(buf.read()).decode()
+        plt.close(fig)
+        return f"data:image/png;base64,{img}"
+    except:
+        return ""
+
+
+def process_one(code, df_k_all):
+    df = df_k_all[df_k_all["code"] == code].copy()
+    if len(df) < 5:
+        return code, ""
+    df.set_index("dt", inplace=True)
+    return code, fast_plot(df)
+
+
+# -------------------- 并行绘图 --------------------
+def generate_html(today):
+    df_up, df_k_all, price_map, rise_map = load_all_data()
+    if df_up.empty:
+        print("⚠️ 没有上涨数据，跳过 HTML 生成")
+        return
+
+    industry_count = df_up["industry"].value_counts().sort_values(ascending=False)
+    industries = industry_count.index.tolist()
+
+    stock_image_map = {}
+    print("🖼️ 开始批量绘图...")
+
+    with ProcessPoolExecutor(max_workers=14) as executor:
+        fn = partial(process_one, df_k_all=df_k_all)
+        results = list(executor.map(fn, df_up["code"].unique()))
+
+    for code, img in results:
+        stock_image_map[code] = img
+
+    print("🌍 生成HTML...")
+
+    # HTML 模板 & 样式
+    html = '''
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <title>连续1天上涨股票 K线图</title>
+        <style>
+            *{box-sizing:border-box;margin:0;padding:0;font-family:Microsoft YaHei}
+            body{background:#f5f7fa;padding:20px}
+            .container{max-width:1900px;margin:0 auto}
+            .title{text-align:center;margin-bottom:20px}
+
+            .filter-panel{display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:20px}
+            .switch-row{display:flex;gap:8px;justify-content:center}
+            .btn{padding:10px 20px;border:none;border-radius:6px;background:#e3e6ed;cursor:pointer;font-weight:bold}
+            .btn.active{background:#2f80ed;color:white}
+
+            .tab-wrap{background:white;padding:15px;border-radius:10px;margin-bottom:20px}
+            .tabs{display:flex;gap:8px;flex-wrap:wrap}
+            .tab{padding:8px 16px;background:#f1f3f5;border:0;border-radius:6px;cursor:pointer}
+            .tab.active{background:#2f80ed;color:white}
+
+            .tab-content{display:none;grid-template-columns:repeat(3,1fr);gap:16px}
+            .tab-content.active{display:grid}
+
+            .card{background:white;padding:12px;border-radius:12px}
+            .card img{width:100%;border-radius:8px;margin-top:10px}
+            .stock-title{font-weight:bold}
+            .price{color:#e63946;font-size:14px;margin-left:6px}
+            .rise-green{color:#28a745;font-size:14px;margin-left:4px}
+            .rise-red{color:#e63946;font-size:14px;margin-left:4px}
+            .sub{font-size:12px;color:#888;margin-top:4px}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="title">📈 连续1天上涨股票 K线看板</h1>
+
+            <div class="filter-panel">
+                <div class="switch-row">
+                    <button class="btn col-btn" onclick="changeColumns(2)">2列</button>
+                    <button class="btn col-btn active" onclick="changeColumns(3)">3列</button>
+                    <button class="btn col-btn" onclick="changeColumns(4)">4列</button>
+                    <button class="btn col-btn" onclick="changeColumns(5)">5列</button>
+                </div>
+                <div class="switch-row">
+                    <button class="btn market-btn active" onclick="filterMarket('all')">显示全部</button>
+                    <button class="btn market-btn" onclick="filterMarket('zb')">仅看主板</button>
+                    <button class="btn market-btn" onclick="filterMarket('cyb')">仅看创业板</button>
+                    <button class="btn market-btn" onclick="filterMarket('kcb')">仅看科创板</button>
+                </div>
+            </div>
+
+            <div class="tab-wrap">
+                <div class="tabs">
+    '''
+
+    # 行业TAB
+    for i, ind in enumerate(industries):
+        count = industry_count[ind]
+        active = "active" if i == 0 else ""
+        html += f'<button class="tab {active}" id="tab-btn-{i}" onclick="setTab({i})">{ind}(<span class="cnt">{count}</span>)</button>'
+
+    html += '</div></div>'
+
+    # 行业内容区
+    for i, ind in enumerate(industries):
+        show = "active" if i == 0 else ""
+        html += f'<div class="tab-content {show}" id="tab-content-{i}">'
+        for _, r in df_up[df_up["industry"] == ind].iterrows():
+            code = r["code"]
+            img = stock_image_map.get(code, "")
+            if not img: continue
+
+            price = price_map.get(code, "")
+            rise_val = rise_map.get(code, 0.00)
+
+            price_str = f"({price} 元)" if price else ""
+            rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
+            rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
+
+            title_html = f'{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}'
+
+            # ====================== ✅ 核心改动：主板、创业板、科创板精准分类 ======================
+            if code.startswith(('300', '301')):
+                mkt = "cyb"
+            elif code.startswith('688'):
+                mkt = "kcb"
+            else:
+                mkt = "zb"
+
+            html += f'''
+            <div class="card" data-market="{mkt}">
+                <div class="stock-title">{title_html}</div>
+                <div class="sub">{r["industry_detail"]} | 连续{r["number_of_consecutive_days"]}天</div>
+                <img src="{img}">
+            </div>
+            '''
+        html += "</div>"
+
+    html += '''
+        <script>
+            let currentColumns = 3;
+            let currentMarket = 'all';
+
+            function changeColumns(col) {
+                currentColumns = col;
+                let grids = document.querySelectorAll('.tab-content');
+                grids.forEach(g => {
+                    g.style.gridTemplateColumns = `repeat(${col}, 1fr)`;
+                });
+                document.querySelectorAll('.col-btn').forEach(btn => {
+                    btn.classList.toggle('active', parseInt(btn.innerText[0]) === col);
+                });
+            }
+
+            function filterMarket(mkt) {
+                currentMarket = mkt;
+
+                // 1. 更新按钮激活状态
+                document.querySelectorAll('.market-btn').forEach(btn => {
+                    btn.classList.toggle('active', 
+                        (mkt === 'all' && btn.innerText.includes('全部')) ||
+                        (mkt === 'zb' && btn.innerText.includes('主板')) ||
+                        (mkt === 'cyb' && btn.innerText.includes('创业板')) ||
+                        (mkt === 'kcb' && btn.innerText.includes('科创板'))
+                    );
+                });
+
+                // 2. 遍历所有卡片，根据市场属性过滤
+                document.querySelectorAll('.tab-content').forEach((content, i) => {
+                    let cards = content.querySelectorAll('.card');
+                    let visibleCount = 0;
+
+                    cards.forEach(card => {
+                        let m = card.getAttribute('data-market');
+                        if (mkt === 'all' || m === mkt) {
+                            card.style.display = 'block';
+                            visibleCount++;
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+
+                    // 3. 动态更新 Tab 上的计数
+                    let tabBtn = document.querySelector(`#tab-btn-${i} .cnt`);
+                    if (tabBtn) tabBtn.innerText = visibleCount;
+                });
+            }
+
+            function setTab(i){
+                document.querySelectorAll('.tab-content').forEach((e,j)=>{
+                    e.classList.toggle('active', j==i);
+                    document.querySelectorAll('.tab')[j].classList.toggle('active', j==i);
+                });
+            }
+        </script>
+    </body></html>
+    '''
+
+    out_file = f"""../html/{today}_连续 1 天上涨股票 K 线图.html"""
+    with open(out_file, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    print(f"✅ 完成！文件已生成：{out_file}")
+
+
+def update_stock_2days_up(today):
+    # 1. 清空表
+    sql_truncate = "TRUNCATE TABLE stock_1days_up;"
+
+    # 2. 插入数据（移除过滤科创板的限制）
+    sql_insert = f"""
+    insert into stock.stock_1days_up
+    with step1 as (
+        select
+            dt,
+            code,
+            stock_name,
+            price_close,
+            price_open,
+            case when price_close >= price_open then 1 else 0 end as is_up
+        from stock_detail
+        where dt>='2026-03-02'
+            and upper(stock_name) not like '%%ST%%'
+    ),
+    step2 as (
+        select
+            *,
+            row_number() over (partition by code order by dt) as rn,
+            row_number() over (partition by code, is_up order by dt) as rn_up
+        from step1
+    ),
+    step3 as (
+        select
+            code,
+            max(stock_name) as stock_name,
+            count(*) as number_of_consecutive_days,
+            max(dt) as end_dt
+        from step2
+        where is_up = 1
+        group by code, rn - rn_up
+        having count(*) >= 2
+           and max(dt) = '{today}'
+    ),
+    final_result as (
+        select
+            s3.code,
+            s3.stock_name,
+            s3.number_of_consecutive_days,
+            dst.industry,
+            dst.industry_detail
+        from step3 s3
+        left join dim_stock_tag dst
+            on s3.code = replace(replace(lower(dst.code), 'sz', ''), 'sh', '')
+    )
+    select * from final_result
+    order by number_of_consecutive_days desc;
+    """
+
+    with engine.connect() as conn:
+        print("正在清空表 stock_1days_up...")
+        conn.execute(text(sql_truncate))
+
+        print("正在插入连续1天上涨股票数据...")
+        conn.execute(text(sql_insert))
+
+        conn.commit()
+
+    print("✅ SQL执行完成！")
+
+
+if __name__ == "__main__":
+    start_time = time.time()
+    # today = '2026-05-06'
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    update_stock_2days_up(today)
+    generate_html(today)
+
+    end_time = time.time()
+    print(f"程序总耗时：{end_time - start_time:.2f} 秒")

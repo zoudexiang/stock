@@ -72,6 +72,15 @@ CREATE TABLE `stock_detail` (
   `rise_15` double DEFAULT NULL COMMENT '15日涨幅'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 连续一天阳线
+create table stock_1days_up (
+    code varchar(6) comment '股票代码',
+    stock_name varchar(100) comment '股票名称',
+    number_of_consecutive_days int comment '连续天数',
+    industry varchar(100) comment '所属行业',
+    industry_detail varchar(100)  comment '细分行业'
+);
+
 -- 连续两天阳线
 create table stock_2days_up (
     code varchar(6) comment '股票代码',
