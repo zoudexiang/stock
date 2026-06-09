@@ -37,7 +37,9 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
         '换手': 'turnover_rate',
         '5日涨幅': 'rise_5',
         '10日涨幅': 'rise_10',
-        '20日涨幅': 'rise_15'
+        '20日涨幅': 'rise_15',
+        '总市值': 'total_market_capitalization',
+        '流通市值': 'trading_market_capitalization'
     }
 
     # 2. 读取 Excel 文件（兼容 .xls 格式）
@@ -78,7 +80,7 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
                 df_clean[mysql_col] = None
 
         # ====================== ✅ 核心：处理 -- 为 0 ======================
-        rise_cols = ['rise_5', 'rise_10', 'rise_15']
+        rise_cols = ['rise_5', 'rise_10', 'rise_15', 'total_market_capitalization', 'trading_market_capitalization']
         for col in rise_cols:
             if col in df_clean.columns:
                 # 把 -- 替换成 0
@@ -91,7 +93,8 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
             'dt', 'code', 'stock_name', 'price_open', 'price_close',
             'price_highest', 'price_lowest', 'trade', 'trade_amount',
             'amplitude', 'rise', 'amount_increase_decrease', 'turnover_rate',
-            'rise_5', 'rise_10', 'rise_15'  # ✅ 新增3列
+            'rise_5', 'rise_10', 'rise_15',
+            'total_market_capitalization', 'trading_market_capitalization'  # ✅ 新增列
         ]
         df_final = df_clean[final_mysql_cols].copy()
 
@@ -165,7 +168,9 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
                                     round(turnover_rate * 100, 2) as turnover_rate,
                                     round(rise_5 * 100, 2) as rise_5,
                                     round(rise_10 * 100, 2) as rise_10,
-                                    round(rise_15 * 100, 2) as rise_15
+                                    round(rise_15 * 100, 2) as rise_15,
+                                    total_market_capitalization, 
+                                    trading_market_capitalization
                                 from stock.stock_detail_tmp;
                                 """)
                 conn.execute(insert_sql)

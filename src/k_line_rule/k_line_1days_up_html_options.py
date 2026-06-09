@@ -322,15 +322,42 @@ def update_stock_1days_up(today):
     insert into stock.stock_1days_up
     with step1 as (
         select
-            dt,
-            code,
-            stock_name,
-            price_close,
-            price_open,
-            case when price_close >= price_open then 1 else 0 end as is_up
-        from stock_detail
-        where dt>='2026-04-02'
-            and upper(stock_name) not like '%%ST%%'
+            a.dt,
+            a.code,
+            a.stock_name,
+            a.price_close,
+            a.price_open,
+            a.is_up,
+            total_market_capitalization,
+            trading_market_capitalization
+        from (
+            select
+                dt,
+                code,
+                stock_name,
+                price_close,
+                price_open,
+                case when price_close >= price_open then 1 else 0 end as is_up
+            from stock_detail
+            where dt>='2026-04-02'
+                and upper(stock_name) not like '%%ST%%'
+        ) a join (
+            -- 只要百亿市值以上的股票
+            select
+                code,
+                concat(total_market_capitalization, '亿') as total_market_capitalization,
+                concat(trading_market_capitalization, '亿') as trading_market_capitalization
+            from (
+                select
+                    code,
+                    round(total_market_capitalization / 100000000, 2) as total_market_capitalization,
+                    round(trading_market_capitalization / 100000000, 2) as trading_market_capitalization
+                from stock_detail
+                where dt='{today}'
+                    and upper(stock_name) not like '%%ST%%'
+            ) t 
+            where total_market_capitalization>=100
+        ) b on a.code=b.code
     ),
     step2 as (
         select
