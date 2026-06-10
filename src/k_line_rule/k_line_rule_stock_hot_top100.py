@@ -57,45 +57,36 @@ def fast_plot(df):
     except:
         return ""
 
-def process_one(code, df_k_all):
-    df = df_k_all[df_k_all["code"] == code].copy()
-    if len(df) < 5:
-        return code, ""
-    df.set_index("dt", inplace=True)
-    return code, fast_plot(df)
-
 # ======================================================================================
-# 同花顺热榜TOP个股 HTML 生成（纯热榜逻辑）
+# 同花顺热榜TOP个股 HTML 生成
 # ======================================================================================
 def generate_hotstock_html():
     print("📥 加载同花顺热榜TOP个股数据...")
     # 获取最新交易日期
     last_dt = pd.read_sql("SELECT MAX(dt) AS dt FROM stock_detail", engine).iloc[0]["dt"]
 
-    # 你指定的查询SQL，按seq升序
+    # 关联 dim_stock_tag 取出行业、细分行业
     sql = f"""
     select
-        seq,
-        stock_code,
-        stock_name
-    from (
-        select
-            seq,
-            stock_code
-        from dim_stock_hot
-    ) a join (
-        select
-            code,
-            stock_name
-        from stock_detail
-        where dt='{last_dt}' and stock_name not like '%%ST%%'
-    ) b on stock_code=code
-    order by seq;
+        a.seq,
+        a.stock_code,
+        b.stock_name,
+        c.industry,
+        c.industry_detail
+    from dim_stock_hot a
+    left join stock_detail b on a.stock_code = b.code and b.dt = '{last_dt}'
+    left join dim_stock_tag c on REPLACE(REPLACE(LOWER(c.code), 'sz', ''), 'sh', '') = a.stock_code
+    where b.stock_name not like '%%ST%%'
+    order by a.seq;
     """
     df_hot = pd.read_sql(sql, engine)
     if df_hot.empty:
         print("❌ 热榜暂无有效个股数据")
         return
+
+    # 空值填充
+    df_hot["industry"] = df_hot["industry"].fillna("未知行业")
+    df_hot["industry_detail"] = df_hot["industry_detail"].fillna("未知细分")
 
     # 提取代码，批量查询K线
     codes = df_hot["stock_code"].unique().tolist()
@@ -141,7 +132,6 @@ def generate_hotstock_html():
         img_map[c] = i
 
     print("🌍 生成热榜HTML页面...")
-    # HTML 模板，样式、交互完全沿用原有风格
     html = '''
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -188,11 +178,13 @@ def generate_hotstock_html():
             <div class="tab-content active">
     '''
 
-    # 按榜单排名顺序循环生成卡片
+    # 循环生成卡片，替换为行业+细分行业
     for _, r in df_hot.iterrows():
         code = r["stock_code"]
         seq = r["seq"]
         stock_name = r["stock_name"]
+        industry = r["industry"]
+        industry_detail = r["industry_detail"]
         img = img_map.get(code, "")
         if not img:
             continue
@@ -203,10 +195,11 @@ def generate_hotstock_html():
         rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
         rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
 
+        # 原固定文字替换为 行业 | 细分行业
         html += f'''
         <div class="card">
             <div class="stock-title">排名{seq} | {code} {stock_name}<span class="price">{price_str}</span>{rise_str}</div>
-            <div class="sub">同花顺热榜TOP榜单</div>
+            <div class="sub">{industry} | {industry_detail}</div>
             <img src="{img}">
         </div>
         '''
