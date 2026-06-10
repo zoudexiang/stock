@@ -313,7 +313,7 @@ def generate_html(today):
     print(f"✅ 完成！文件已生成：{out_file}")
 
 
-def update_stock_1days_up(today):
+def update_stock_1days_up(today, market_capitalization):
     # 1. 清空表
     sql_truncate = "TRUNCATE TABLE stock_1days_up;"
 
@@ -356,7 +356,7 @@ def update_stock_1days_up(today):
                 where dt='{today}'
                     and upper(stock_name) not like '%%ST%%'
             ) t 
-            where total_market_capitalization>=100
+            where total_market_capitalization>={market_capitalization}
         ) b on a.code=b.code
     ),
     step2 as (
@@ -409,7 +409,9 @@ if __name__ == "__main__":
     start_time = time.time()
     today = datetime.now().strftime("%Y-%m-%d")
 
-    update_stock_1days_up(today)
+    # 筛选市值大于多少亿的股票
+    market_capitalization = 100
+    update_stock_1days_up(today, market_capitalization)
     generate_html(today)
 
     end_time = time.time()
