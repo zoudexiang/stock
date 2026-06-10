@@ -160,3 +160,29 @@ CREATE TABLE `stock_detail_calc_backtracking` (
 UPDATE stock.stock_detail
 SET rise = round(rise*100, 2), turnover_rate = round(turnover_rate*100, 2), amplitude = round(amplitude*100, 2)
 WHERE dt >= '2026-03-16';
+
+-- 热榜维表
+create table stock.dim_stock_hot(
+    dt varchar(10) comment '写入日期，格式 yyyy-MM-dd HH:mm:ss',
+    seq int comment '当日热榜排名',
+    stock_code varchar(100) comment '股票代码'
+)
+
+-- 补全 stock_name
+select
+    seq,
+    stock_code,
+    stock_name
+from (
+    select
+        seq,
+        stock_code
+    from dim_stock_hot
+) a join (
+    select
+        code,
+        stock_name
+    from stock_detail
+    where dt='2026-06-03' and stock_name not like '%ST%'
+) b on stock_code=code
+order by seq;
