@@ -180,10 +180,34 @@ def generate_rise5_html():
             .rise-green{color:#28a745;font-size:14px;margin-left:4px}
             .rise-red{color:#e63946;font-size:14px;margin-left:4px}
             .sub{font-size:12px;color:#888;margin-top:4px}
+            /* 新增全局四色循环动画，整段文字同步变色 */
+            .rule-wrap{
+                text-align:center;
+                margin-bottom:16px;
+                font-size:16px;
+                font-weight:bold;
+                line-height:1.7;
+                animation: colorLoop 4s infinite linear;
+            }
+            @keyframes colorLoop {
+                0%{color:#ff2222;}
+                25%{color:#00aa22;}
+                50%{color:#ddbb00;}
+                75%{color:#9922bb;}
+                100%{color:#ff2222;}
+            }
         </style>
     </head>
     <body>
         <div class="container">
+            <!-- 页面上方正中间，全部文字同步循环切换红/绿/黄/紫 -->
+            <div class="rule-wrap">
+                个人选股核心原则：<br/>
+                1、异动<br/>
+                2、市值<br/>
+                3、板块内低位<br/>
+                4、一轮主升浪后清洗2天的
+            </div>
             <h1 class="title">🚀 5 日涨幅超 20% 强势股 K 线看板</h1>
             <div class="col-switch">
                 <button class="col-btn" onclick="changeColumns(2)">2列</button>
