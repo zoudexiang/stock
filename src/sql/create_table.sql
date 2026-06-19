@@ -110,6 +110,15 @@ create table stock_3days_up (
     industry_detail varchar(100)  comment '细分行业'
 );
 
+-- 连续 2 天阴线
+create table stock_2days_down (
+    code varchar(6) comment '股票代码',
+    stock_name varchar(100) comment '股票名称',
+    number_of_consecutive_days int comment '连续天数',
+    industry varchar(100) comment '所属行业',
+    industry_detail varchar(100)  comment '细分行业'
+);
+
 -- 连续三天阴线
 create table stock_3days_down (
     code varchar(6) comment '股票代码',
