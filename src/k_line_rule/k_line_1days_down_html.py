@@ -346,10 +346,10 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    # today = datetime.now().strftime("%Y-%m-%d")
-    today = '2026-06-18'
+    today = datetime.now().strftime("%Y-%m-%d")
+    # today = '2026-06-18'
 
-    # rise_10 表示最近 10 个交易日涨幅
+    # rise_10 表示最近 10 个交易日涨幅, 0.1 代表 10%
     rise_10 = 0.1
     update_stock_1days_down(today, rise_10)
 
