@@ -75,7 +75,7 @@ def generate_html():
     # 1. 获取最新一天日期
     last_dt = pd.read_sql("SELECT MAX(dt) AS dt FROM stock_detail", engine).iloc[0]["dt"]
 
-    # 2. 查询 rise_5 > 20% 股票 + 关联行业
+    # 2. 查询指定股票列表
     sql = f"""
     select
         s.code,
@@ -178,12 +178,7 @@ def generate_html():
     for c, i in res:
         img_map[c] = i
 
-    # 5. 按行业分组（按股票数从多到少）
-    df["industry"] = df["industry"].fillna("未分类")
-    ind_cnt = df["industry"].value_counts().sort_values(ascending=False)
-    industries = ind_cnt.index.tolist()
-
-    # 6. 生成HTML（完全沿用你的样式）
+    # 6. 生成HTML（已移除板块Tab切换）
     print("🌍 生成HTML...")
     html = '''
     <!DOCTYPE html>
@@ -199,12 +194,12 @@ def generate_html():
             .col-switch{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
             .col-btn{padding:10px 20px;border:none;border-radius:6px;background:#e3e6ed;cursor:pointer}
             .col-btn.active{background:#2f80ed;color:white}
-            .tab-wrap{background:white;padding:15px;border-radius:10px;margin-bottom:20px}
-            .tabs{display:flex;gap:8px;flex-wrap:wrap}
-            .tab{padding:8px 16px;background:#f1f3f5;border:0;border-radius:6px;cursor:pointer}
-            .tab.active{background:#2f80ed;color:white}
-            .tab-content{display:none;grid-template-columns:repeat(3,1fr);gap:16px}
-            .tab-content.active{display:grid}
+            /* 全局卡片容器，不分行业全部展示 */
+            .global-card-wrap{
+                display:grid;
+                grid-template-columns:repeat(3,1fr);
+                gap:16px
+            }
             .card{background:white;padding:12px;border-radius:12px}
             .card img{width:100%;border-radius:8px;margin-top:10px}
             .stock-title{font-weight:bold}
@@ -239,61 +234,46 @@ def generate_html():
                 <button class="col-btn" onclick="changeColumns(4)">4列</button>
                 <button class="col-btn" onclick="changeColumns(5)">5列</button>
             </div>
+            <!-- 单一全局卡片容器，无行业Tab -->
+            <div class="global-card-wrap" id="cardWrap">
     '''
 
-    # 行业TAB
-    for i, ind in enumerate(industries):
-        active = "active" if i == 0 else ""
-        html += f'<button class="tab {active}" onclick="setTab({i})">{ind}({ind_cnt[ind]})</button>'
-    html += '</div></div>'
+    # 直接遍历全部股票，不再按行业分组、不渲染tab按钮
+    for _, r in df.iterrows():
+        code = r["code"]
+        img = img_map.get(code, "")
+        if not img:
+            continue
 
-    # 行业卡片
-    for i, ind in enumerate(industries):
-        active = "active" if i == 0 else ""
-        html += f'<div class="tab-content {active}">'
-        sub_df = df[df["industry"] == ind]
-        for _, r in sub_df.iterrows():
-            code = r["code"]
-            img = img_map.get(code, "")
-            if not img:
-                continue
+        price = price_map.get(code, "")
+        rise_val = rise_map.get(code, 0)
+        rise5_val = round(r["rise_5"], 2)
 
-            price = price_map.get(code, "")
-            rise_val = rise_map.get(code, 0)
-            rise5_val = round(r["rise_5"], 2)
+        price_str = f"({price}元)" if price else ""
+        rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
+        rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
 
-            price_str = f"({price}元)" if price else ""
-            rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
-            rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
-
-            # ====================== ✅ 这里已强化：显示 5/10/15 日涨幅，全部红色 ======================
-            html += f'''
-            <div class="card">
-                <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}</div>
-                <div class="sub" style="color:red; font-weight:bold;">
-                    5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
-                </div>
-                <div class="sub">{r["industry_detail"]}</div>
-                <img src="{img}">
+        html += f'''
+        <div class="card">
+            <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}</div>
+            <div class="sub" style="color:red; font-weight:bold;">
+                5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
             </div>
-            '''
-        html += "</div>"
+            <div class="sub">{r["industry_detail"]}</div>
+            <img src="{img}">
+        </div>
+        '''
 
     html += '''
+            </div>
+        </div>
         <script>
+            // 仅保留列切换逻辑，删除tab切换setTab函数
             function changeColumns(col) {
-                let grids = document.querySelectorAll('.tab-content');
-                grids.forEach(g => {
-                    g.style.gridTemplateColumns = `repeat(${col}, 1fr)`;
-                });
+                let wrap = document.getElementById('cardWrap');
+                wrap.style.gridTemplateColumns = `repeat(${col}, 1fr)`;
                 document.querySelectorAll('.col-btn').forEach((btn,i) => {
                     btn.classList.toggle('active', parseInt(btn.innerText[0]) === col);
-                });
-            }
-            function setTab(i){
-                document.querySelectorAll('.tab-content').forEach((e,j)=>{
-                    e.classList.toggle('active',j==i)
-                    document.querySelectorAll('.tab')[j].classList.toggle('active',j==i)
                 });
             }
         </script>
@@ -309,12 +289,11 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    # today = '2026-04-03'
     today = datetime.now().strftime("%Y-%m-%d")
 
     generate_html()
 
-    end_time = time.time()  # 程序结尾再记一下
+    end_time = time.time()
     cost_time = end_time - start_time
 
     print(f"程序总耗时：{cost_time:.2f} 秒")
