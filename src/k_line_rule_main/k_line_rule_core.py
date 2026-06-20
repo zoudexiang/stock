@@ -104,7 +104,7 @@ def generate_html():
                 '中国卫星', '中国卫通', '航天电子', '航天动力',
                 '宝明科技', '双星新材', '东威科技',
                 '兆易创新', '佰维存储', '江波龙', '朗科科技',
-                '长飞光纤', '享通光电', '中天科技',
+                '长飞光纤', '亨通光电', '中天科技',
                 '长电科技', '通富微电', '华天科技', '深科技',
                 '绿的谐波', '拓普集团', '三花智控', '汇川技术',
                 '风华高科', '顺络电子', '三环集团', '麦捷科技',
@@ -232,14 +232,6 @@ def generate_html():
     </head>
     <body>
         <div class="container">
-            <!-- 页面上方正中间，全部文字同步循环切换红/绿/黄/紫 -->
-            <div class="rule-wrap">
-                个人选股核心原则：<br/>
-                1、异动<br/>
-                2、市值<br/>
-                3、板块内低位<br/>
-                4、一轮主升浪后清洗2天的
-            </div>
             <h1 class="title">🚀 核心股票 K 线看板</h1>
             <div class="col-switch">
                 <button class="col-btn" onclick="changeColumns(2)">2列</button>
@@ -247,8 +239,6 @@ def generate_html():
                 <button class="col-btn" onclick="changeColumns(4)">4列</button>
                 <button class="col-btn" onclick="changeColumns(5)">5列</button>
             </div>
-            <div class="tab-wrap">
-                <div class="tabs">
     '''
 
     # 行业TAB
