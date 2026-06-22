@@ -71,10 +71,132 @@ def process_one(code, df_k_all):
 def generate_html():
     print("📥 加载核心股票数据...")
 
+    # ========== 1、定义原始自选固定顺序列表 + 股票对应分类注释映射 ==========
+    stock_origin_order = [
+        # CPO
+        '中际旭创', '新易盛', '天孚通信', '华工科技',
+        # 铜箔
+        '铜冠铜箔', '诺德股份', '嘉元科技', '德福科技',
+        # 电子布
+        '中国巨石', '国际复材', '宏和科技', '中材科技',
+        # OCS
+        '腾景科技', '福晶科技', '光库科技', '德科立',
+        # 光芯片
+        '源杰科技', '仕佳光子', '光讯科技', '长光华芯',
+        # PCB
+        '鹏鼎控股', '东山精密', '胜宏科技', '深南电路', '沪电股份',
+        # PET 铜箔
+        '宝明科技', '双星新材', '东威科技',
+        # 存储芯片
+        '兆易创新', '佰维存储', '朗科科技', '德明利', '江波龙',
+        # 光纤
+        '长飞光纤', '亨通光电', '中天科技', '烽火通信',
+        # 先进封装
+        '长电科技', '通富微电', '华天科技', '深科技',
+        # 机器人
+        '绿的谐波', '拓普集团', '三花智控', '汇川技术',
+        # 元件
+        '风华高科', '顺络电子', '三环集团', '麦捷科技',
+        # 铜缆
+        '精达股份', '海亮股份', '金田股份', '楚江新材',
+        # 光模块设备
+        '罗博特科', '科瑞技术', '博杰股份', '德龙激光',
+        # 高速链接
+        '立讯精密', '兆龙互联', '沃尔核材', '鼎通科技',
+        # 贵金属
+        '盛达资源',
+        # 半导体
+        '北方华创', '中微公司', '华润微',
+        # 三代半导
+        '三安光电', '斯达半导',
+        # 小金属
+        '厦门钨业', '章源钨业', '洛阳钼业', '盛和资源',
+        # 消费电子
+        '歌尔股份', '蓝思科技', '领益智造',
+        # 光刻机
+        '张江高科', '芯碁微装', '中瓷电子',
+        # 超级电容
+        '江海股份', '铜峰电子', '新筑股份',
+        # AI PC
+        # AI 芯片
+        '海光信息', '寒武纪', '沐曦股份', '摩尔线程',
+        # AI 服务器
+        '工业富联', '紫光股份', '中科曙光', '浪溯信息',
+        # 树脂
+        '东材科技', '圣泉集团', '美联新材', '宏昌电子',
+        # 液冷服务器
+        '英维克', '高澜股份', '中菱环境',
+        # 电源
+        '中恒电气', '圣阳股份', '欧陆通', '麦格米特',
+        # 燃气轮机
+        '杰瑞股份', '联德股份', '应流股份', '东方电气',
+        # 固态变压器
+        '四方股份', '中国西电', '伊戈尔', '金盘科技',
+        # AIDC
+        '润泽科技', '网宿科技', '光环新网', '数据港',
+        # 算电协同
+        '豫能控股', '协鑫能科', '南网数字', '韶能股份',
+        # 算力租赁
+        '利通电子', '协创数据', '宏景科技', '优刻得',
+        # 商业航天
+        '中国卫星', '中国卫通', '航天电子', '航天动力'
+    ]
+
+    # 新增：股票名称 对应 # 注释分类映射表（完全匹配上方#注释）
+    stock_tag_map = {}
+    tag_blocks = [
+        ("CPO", ['中际旭创', '新易盛', '天孚通信', '华工科技']),
+        ("铜箔", ['铜冠铜箔', '诺德股份', '嘉元科技', '德福科技']),
+        ("电子布", ['中国巨石', '国际复材', '宏和科技', '中材科技']),
+        ("OCS", ['腾景科技', '福晶科技', '光库科技', '德科立']),
+        ("光芯片", ['源杰科技', '仕佳光子', '光讯科技', '长光华芯']),
+        ("PCB", ['鹏鼎控股', '东山精密', '胜宏科技', '深南电路', '沪电股份']),
+        ("PET 铜箔", ['宝明科技', '双星新材', '东威科技']),
+        ("存储芯片", ['兆易创新', '佰维存储', '朗科科技', '德明利', '江波龙']),
+        ("光纤", ['长飞光纤', '亨通光电', '中天科技', '烽火通信']),
+        ("先进封装", ['长电科技', '通富微电', '华天科技', '深科技']),
+        ("机器人", ['绿的谐波', '拓普集团', '三花智控', '汇川技术']),
+        ("元件", ['风华高科', '顺络电子', '三环集团', '麦捷科技']),
+        ("铜缆", ['精达股份', '海亮股份', '金田股份', '楚江新材']),
+        ("光模块设备", ['罗博特科', '科瑞技术', '博杰股份', '德龙激光']),
+        ("高速链接", ['立讯精密', '兆龙互联', '沃尔核材', '鼎通科技']),
+        ("贵金属", ['盛达资源']),
+        ("半导体", ['北方华创', '中微公司', '华润微']),
+        ("三代半导", ['三安光电', '斯达半导']),
+        ("小金属", ['厦门钨业', '章源钨业', '洛阳钼业', '盛和资源']),
+        ("消费电子", ['歌尔股份', '蓝思科技', '领益智造']),
+        ("光刻机", ['张江高科', '芯碁微装', '中瓷电子']),
+        ("超级电容", ['江海股份', '铜峰电子', '新筑股份']),
+        ("AI PC", []),
+        ("AI 芯片", ['海光信息', '寒武纪', '沐曦股份', '摩尔线程']),
+        ("AI 服务器", ['工业富联', '紫光股份', '中科曙光', '浪溯信息']),
+        ("树脂", ['东材科技', '圣泉集团', '美联新材', '宏昌电子']),
+        ("液冷服务器", ['英维克', '高澜股份', '中菱环境']),
+        ("电源", ['中恒电气', '圣阳股份', '欧陆通', '麦格米特']),
+        ("燃气轮机", ['杰瑞股份', '联德股份', '应流股份', '东方电气']),
+        ("固态变压器", ['四方股份', '中国西电', '伊戈尔', '金盘科技']),
+        ("AIDC", ['润泽科技', '网宿科技', '光环新网', '数据港']),
+        ("算电协同", ['豫能控股', '协鑫能科', '南网数字', '韶能股份']),
+        ("算力租赁", ['利通电子', '协创数据', '宏景科技', '优刻得']),
+        ("商业航天", ['中国卫星', '中国卫通', '航天电子', '航天动力'])
+    ]
+    # 填充映射字典
+    for tag, stock_list in tag_blocks:
+        for name in stock_list:
+            stock_tag_map[name] = tag
+
+    # 去重，保证顺序不变
+    unique_stock_list = []
+    seen = set()
+    for name in stock_origin_order:
+        if name not in seen:
+            seen.add(name)
+            unique_stock_list.append(name)
+
     # 1. 获取最新一天日期
     last_dt = pd.read_sql("SELECT MAX(dt) AS dt FROM stock_detail", engine).iloc[0]["dt"]
 
-    # 2. 查询指定股票列表
+    # 2. 查询指定股票列表，删除末尾 order by，不打乱原生顺序
     sql = f"""
     select
         s.code,
@@ -97,76 +219,7 @@ def generate_html():
             rise
         from stock_detail
         where dt = '{last_dt}'
-            and stock_name in (
-                -- CPO
-                '中际旭创', '新易盛', '天孚通信', '华工科技', 
-                -- 铜箔
-                '铜冠铜箔', '诺德股份', '嘉元科技', '德福科技', 
-                -- 电子布
-                '中国巨石', '国际复材', '宏和科技', '中材科技', 
-                -- OCS
-                '腾景科技', '福晶科技', '光库科技', '德科立', 
-                -- 光芯片
-                '源杰科技', '仕佳光子', '光讯科技', '长光华芯', 
-                -- PCB
-                '鹏鼎控股', '东山精密', '胜宏科技', '深南电路', '沪电股份', 
-                -- 商业航天
-                '中国卫星', '中国卫通', '航天电子', '航天动力',
-                -- PET 铜箔
-                '宝明科技', '双星新材', '东威科技',
-                -- 存储芯片
-                '兆易创新', '佰维存储', '朗科科技', '德明利', '江波龙', 
-                -- 光纤
-                '长飞光纤', '亨通光电', '中天科技', '烽火通信', 
-                -- 先进封装
-                '长电科技', '通富微电', '华天科技', '深科技',
-                -- 机器人
-                '绿的谐波', '拓普集团', '三花智控', '汇川技术',
-                -- 元件
-                '风华高科', '顺络电子', '三环集团', '麦捷科技',
-                -- 铜缆
-                '精达股份', '海亮股份', '金田股份', '楚江新材',
-                -- 光模块设备
-                '罗博特科', '科瑞技术', '博杰股份', '德龙激光',
-                -- 高速链接
-                '立讯精密', '兆龙互联', '沃尔核材', '鼎通科技',  
-                -- 贵金属
-                '盛达资源',
-                -- 半导体
-                '北方华创', '中微公司', '华润微',
-                -- 三代半导
-                '三安光电', '华润微', '斯达半导',
-                -- 小金属
-                '厦门钨业', '章源钨业', '洛阳钼业', '盛和资源',
-                -- 消费电子
-                '立讯精密', '歌尔股份', '蓝思科技', '领益智造',
-                -- 光刻机
-                '张江高科', '芯碁微装', '中瓷电子',
-                -- 超级电容
-                '江海股份', '铜峰电子', '新筑股份',
-                -- AI PC
-                '胜宏科技', '江波龙', '鹏鼎控股',
-                -- AI 芯片
-                '海光信息', '寒武纪', '沐曦股份', '摩尔线程',
-                -- AI 服务器
-                '工业富联', '紫光股份', '中科曙光', '浪溯信息', 
-                -- 树脂
-                '东材科技', '圣泉集团', '美联新材', '宏昌电子', 
-                -- 液冷服务器
-                '英维克', '中科曙光', '高澜股份', '中菱环境', 
-                -- 电源
-                '中恒电气', '圣阳股份', '欧陆通', '麦格米特',
-                -- 燃气轮机
-                '杰瑞股份', '联德股份', '应流股份', '东方电气',  
-                -- 固态变压器
-                '四方股份', '中国西电', '伊戈尔', '金盘科技',
-                -- AIDC
-                '润泽科技', '网宿科技', '光环新网', '数据港', 
-                -- 算电协同
-                '豫能控股', '协鑫能科', '南网数字', '韶能股份', 
-                -- 算力租赁
-                '利通电子', '协创数据', '宏景科技', '优刻得'
-            )
+            and stock_name in ({','.join([f"'{x}'" for x in unique_stock_list])})
     ) s left join (
         select
             code,
@@ -174,13 +227,18 @@ def generate_html():
             industry_detail
         from dim_stock_tag
     ) dst on replace(replace(lower(dst.code), 'sz', ''), 'sh', '') = s.code
-    order by s.rise_5 desc
     """
 
     df = pd.read_sql(sql, engine)
     if df.empty:
         print("❌ 未选出任何核心股票")
         return
+
+    # ========== 核心：按照你原始书写顺序强制重排DataFrame ==========
+    sort_mapping = {name: idx for idx, name in enumerate(unique_stock_list)}
+    df["sort_key"] = df["stock_name"].map(sort_mapping)
+    df = df.sort_values("sort_key").reset_index(drop=True)
+    df.drop(columns=["sort_key"], inplace=True)
 
     # 3. 加载这些股票的K线
     codes = df["code"].unique().tolist()
@@ -226,10 +284,11 @@ def generate_html():
     for c, i in res:
         img_map[c] = i
 
-    # ---------------------- 新增：按代码分三大板块 ----------------------
+    # ---------------------- 按代码分三大板块，板块内部保留原始自选顺序 ----------------------
     main_board = []    # 主板
     growth = []         # 创业板300/301
     star = []           # 科创板688
+    all_stock = df.to_dict("records") # 全部股票列表，顺序不变
     for _, row in df.iterrows():
         code = row["code"]
         if code.startswith("688"):
@@ -242,8 +301,9 @@ def generate_html():
     main_cnt = len(main_board)
     growth_cnt = len(growth)
     star_cnt = len(star)
+    all_cnt = len(all_stock)
 
-    # 6. 生成HTML，新增板块Tab切换
+    # 6. 生成HTML，新增【全部个股】Tab
     print("🌍 生成HTML...")
     html = '''
     <!DOCTYPE html>
@@ -301,9 +361,10 @@ def generate_html():
         <div class="container">
             <h1 class="title">🚀 核心股票 K 线看板</h1>
 
-            <!-- 板块Tab按钮 -->
+            <!-- 板块Tab按钮：新增全部个股tab，默认激活全部 -->
             <div class="tab-group">
-                <button class="tab-btn active" onclick="switchTab('main')">主板({main_cnt})</button>
+                <button class="tab-btn active" onclick="switchTab('all')">全部个股({all_cnt})</button>
+                <button class="tab-btn" onclick="switchTab('main')">主板({main_cnt})</button>
                 <button class="tab-btn" onclick="switchTab('cy')">创业板({growth_cnt})</button>
                 <button class="tab-btn" onclick="switchTab('kc')">科创板({star_cnt})</button>
             </div>
@@ -316,12 +377,13 @@ def generate_html():
                 <button class="col-btn" onclick="changeColumns(5)">5列</button>
             </div>
 
-            <!-- 主板容器 -->
-            <div class="tab-content active" id="main">
+            <!-- 全部个股容器（默认显示） -->
+            <div class="tab-content active" id="all">
     '''
-    # 填充主板卡片
-    for r in main_board:
+    # 填充全部个股卡片（完整原始自选顺序）
+    for r in all_stock:
         code = r["code"]
+        stock_name = r["stock_name"]
         img = img_map.get(code, "")
         if not img:
             continue
@@ -330,13 +392,48 @@ def generate_html():
         price_str = f"({price}元)" if price else ""
         rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
         rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
+        # 取出#注释分类
+        tag_text = stock_tag_map.get(stock_name, "")
+        tag_html = f'<span style="color:#2f80ed; font-weight:bold;">{tag_text}</span>'
+        line_text = f"{tag_html} | {r['industry']} | {r['industry_detail']}"
         html += f'''
         <div class="card">
-            <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}</div>
+            <div class="stock-title">{code} {stock_name}<span class="price">{price_str}</span>{rise_str}</div>
             <div class="sub" style="color:red; font-weight:bold;">
                 5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
             </div>
-            <div class="sub">{r["industry_detail"]}</div>
+            <div class="sub">{line_text}</div>
+            <img src="{img}">
+        </div>
+        '''
+    html += '''
+            </div>
+
+            <!-- 主板容器 -->
+            <div class="tab-content" id="main">
+    '''
+    # 填充主板卡片
+    for r in main_board:
+        code = r["code"]
+        stock_name = r["stock_name"]
+        img = img_map.get(code, "")
+        if not img:
+            continue
+        price = price_map.get(code, "")
+        rise_val = rise_map.get(code, 0)
+        price_str = f"({price}元)" if price else ""
+        rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
+        rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
+        tag_text = stock_tag_map.get(stock_name, "")
+        tag_html = f'<span style="color:#2f80ed; font-weight:bold;">{tag_text}</span>'
+        line_text = f"{tag_html} | {r['industry']} | {r['industry_detail']}"
+        html += f'''
+        <div class="card">
+            <div class="stock-title">{code} {stock_name}<span class="price">{price_str}</span>{rise_str}</div>
+            <div class="sub" style="color:red; font-weight:bold;">
+                5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
+            </div>
+            <div class="sub">{line_text}</div>
             <img src="{img}">
         </div>
         '''
@@ -349,6 +446,7 @@ def generate_html():
     # 填充创业板卡片
     for r in growth:
         code = r["code"]
+        stock_name = r["stock_name"]
         img = img_map.get(code, "")
         if not img:
             continue
@@ -357,13 +455,16 @@ def generate_html():
         price_str = f"({price}元)" if price else ""
         rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
         rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
+        tag_text = stock_tag_map.get(stock_name, "")
+        tag_html = f'<span style="color:#2f80ed; font-weight:bold;">{tag_text}</span>'
+        line_text = f"{tag_html} | {r['industry']} | {r['industry_detail']}"
         html += f'''
         <div class="card">
-            <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}</div>
+            <div class="stock-title">{code} {stock_name}<span class="price">{price_str}</span>{rise_str}</div>
             <div class="sub" style="color:red; font-weight:bold;">
                 5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
             </div>
-            <div class="sub">{r["industry_detail"]}</div>
+            <div class="sub">{line_text}</div>
             <img src="{img}">
         </div>
         '''
@@ -376,6 +477,7 @@ def generate_html():
     # 填充科创板卡片
     for r in star:
         code = r["code"]
+        stock_name = r["stock_name"]
         img = img_map.get(code, "")
         if not img:
             continue
@@ -384,13 +486,16 @@ def generate_html():
         price_str = f"({price}元)" if price else ""
         rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
         rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
+        tag_text = stock_tag_map.get(stock_name, "")
+        tag_html = f'<span style="color:#2f80ed; font-weight:bold;">{tag_text}</span>'
+        line_text = f"{tag_html} | {r['industry']} | {r['industry_detail']}"
         html += f'''
         <div class="card">
-            <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_str}</span>{rise_str}</div>
+            <div class="stock-title">{code} {stock_name}<span class="price">{price_str}</span>{rise_str}</div>
             <div class="sub" style="color:red; font-weight:bold;">
                 5日涨幅: {r["rise_5"]:.2f}% ｜ 10日涨幅: {r["rise_10"]:.2f}% ｜ 15日涨幅: {r["rise_15"]:.2f}%
             </div>
-            <div class="sub">{r["industry_detail"]}</div>
+            <div class="sub">{line_text}</div>
             <img src="{img}">
         </div>
         '''
@@ -399,7 +504,7 @@ def generate_html():
         </div>
 
         <script>
-            // 板块切换
+            // 板块切换（新增all全部标签逻辑）
             function switchTab(tabId) {
                 // 隐藏所有内容
                 document.querySelectorAll('.tab-content').forEach(box => {
@@ -414,7 +519,7 @@ def generate_html():
                 event.target.classList.add('active');
             }
 
-            // 列数切换，全部tab同步生效
+            // 列数切换，全部4个tab同步生效
             function changeColumns(col) {
                 document.querySelectorAll('.tab-content').forEach(wrap => {
                     wrap.style.gridTemplateColumns = `repeat(${col}, 1fr)`;
@@ -426,7 +531,8 @@ def generate_html():
         </script>
     </body></html>
     '''
-    # 填充板块数量
+    # 填充板块数量占位符
+    html = html.replace("{all_cnt}", str(all_cnt))
     html = html.replace("{main_cnt}", str(main_cnt))
     html = html.replace("{growth_cnt}", str(growth_cnt))
     html = html.replace("{star_cnt}", str(star_cnt))
