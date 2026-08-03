@@ -103,6 +103,7 @@ def import_xls_to_section_detail(xls_file_path, dt, db_config):
         # ====================== ✅ 核心新增：过滤 ratio 为 '--' 的数据 ======================
         print(f"📊 过滤前数据行数：{len(df_clean)}")
         df_clean = df_clean[df_clean["ratio"] != "--"]  # 过滤量比为 -- 的行
+        df_clean = df_clean[df_clean["main_force"] != "--"]  # 过滤主力净量为 -- 的行
 
         # 补充 dt 字段（当前系统日期）
         df_clean['dt'] = dt
