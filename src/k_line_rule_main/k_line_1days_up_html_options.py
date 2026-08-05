@@ -314,10 +314,11 @@ def generate_html(today):
 
 
 def update_stock_1days_up(today, market_capitalization):
+
     # 1. 清空表
     sql_truncate = "TRUNCATE TABLE stock_1days_up;"
 
-    # 2. 插入数据（移除过滤科创板的限制）
+    # 2. 插入数据
     sql_insert = f"""
     insert into stock.stock_1days_up
     with step1 as (
@@ -341,6 +342,7 @@ def update_stock_1days_up(today, market_capitalization):
             from stock_detail
             where dt>='2026-04-02'
                 and upper(stock_name) not like '%%ST%%'
+                and code not like '688%%'
         ) a join (
             -- 只要百亿市值以上的股票
             select
@@ -355,6 +357,7 @@ def update_stock_1days_up(today, market_capitalization):
                 from stock_detail
                 where dt='{today}'
                     and upper(stock_name) not like '%%ST%%'
+                    and code not like '688%%'
             ) t 
             where total_market_capitalization>={market_capitalization}
         ) b on a.code=b.code
