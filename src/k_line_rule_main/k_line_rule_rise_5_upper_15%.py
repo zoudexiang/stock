@@ -68,15 +68,15 @@ def process_one(code, df_k_all):
     return code, fast_plot(df)
 
 # ======================================================================================
-# ✅【新增】5日涨幅 > 20% 股票策略 + HTML 生成（完全复用你的逻辑）
+# ✅【新增】5日涨幅 > 15% 股票策略 + HTML 生成（完全复用你的逻辑）
 # ======================================================================================
 def generate_rise5_html():
-    print("📥 加载 5日涨幅超20% 股票数据...")
+    print("📥 加载 5日涨幅超15% 股票数据...")
 
     # 1. 获取最新一天日期
     last_dt = pd.read_sql("SELECT MAX(dt) AS dt FROM stock_detail", engine).iloc[0]["dt"]
 
-    # 2. 查询 rise_5 > 20% 股票 + 关联行业
+    # 2. 查询 rise_5 > 15% 股票 + 关联行业
     sql = f"""
         SELECT
             s.code,
@@ -92,14 +92,14 @@ def generate_rise5_html():
         LEFT JOIN dim_stock_tag dst
             ON REPLACE(REPLACE(LOWER(dst.code), 'sz', ''), 'sh', '') = s.code
         WHERE s.dt = '{last_dt}'
-          AND s.rise_5 > 20
+          AND s.rise_5 >= 15
           AND s.code NOT LIKE '688%%'
           AND UPPER(s.stock_name) NOT LIKE '%%ST%%'
         ORDER BY s.rise_5 DESC
     """
     df = pd.read_sql(sql, engine)
     if df.empty:
-        print("❌ 暂无 5日涨幅超20% 的股票")
+        print("❌ 暂无 5日涨幅超15% 的股票")
         return
 
     # 3. 加载这些股票的K线
@@ -158,7 +158,7 @@ def generate_rise5_html():
     <html lang="zh-CN">
     <head>
         <meta charset="UTF-8">
-        <title>5 日涨幅超 20% 强势股</title>
+        <title>5 日涨幅超 15% 强势股</title>
         <style>
             *{box-sizing:border-box;margin:0;padding:0;font-family:Microsoft YaHei}
             body{background:#f5f7fa;padding:20px}
@@ -208,7 +208,7 @@ def generate_rise5_html():
                 3、板块内低位<br/>
                 4、一轮主升浪后清洗2天的
             </div>
-            <h1 class="title">🚀 5 日涨幅超 20% 强势股 K 线看板</h1>
+            <h1 class="title">🚀 5 日涨幅超 15% 强势股 K 线看板</h1>
             <div class="col-switch">
                 <button class="col-btn" onclick="changeColumns(2)">2列</button>
                 <button class="col-btn active" onclick="changeColumns(3)">3列</button>
@@ -278,7 +278,7 @@ def generate_rise5_html():
     </body></html>
     '''
 
-    filename = f"../html/{datetime.now().strftime('%Y-%m-%d')}_5日涨幅超20%股票.html"
+    filename = f"../html/{datetime.now().strftime('%Y-%m-%d')}_5日涨幅超15%股票.html"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"✅ 完成！文件已生成：{filename}")
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     # today = '2026-04-03'
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # ✅ 新功能：5日涨幅 >20% 股票看板
+    # ✅ 新功能：5日涨幅 >15% 股票看板
     generate_rise5_html()
 
     end_time = time.time()  # 程序结尾再记一下
