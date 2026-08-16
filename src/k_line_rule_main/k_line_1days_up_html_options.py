@@ -411,6 +411,7 @@ def update_stock_1days_up(today, market_capitalization):
 if __name__ == "__main__":
     start_time = time.time()
     today = datetime.now().strftime("%Y-%m-%d")
+    # today = '2026-08-14'
 
     # 筛选市值大于多少亿的股票
     market_capitalization = 100
