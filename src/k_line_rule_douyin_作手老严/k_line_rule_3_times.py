@@ -130,7 +130,7 @@ def generate_first_volume_break_html():
         WHERE REPLACE(REPLACE(LOWER(code), 'sz', ''), 'sh', '') IN ({ph})
     """
     df_tag = pd.read_sql(sql_tag, engine)
-    # df_tag["code"] = df_tag["code"].apply(lambda x: replace(replace(str(x).lower(), "sz", ""), "sh", ""))
+
     def clean_code(s):
         s = str(s).lower()
         s = s.replace("sz", "").replace("sh", "")
@@ -161,8 +161,27 @@ def generate_first_volume_break_html():
     """
     df_k_plot = pd.read_sql(sql_plot_k, engine)
     df_k_plot["dt"] = pd.to_datetime(df_k_plot["dt"])
-    # 平盘K线变红
-    df_k_plot.loc[df_k_plot["Close"] == df_k_plot["Open"], "Close"] += 0.0001
+
+    # =====================【修改重点：一字涨跌停颜色修复逻辑】=====================
+    # 区分一字涨停、一字跌停、普通十字星，避免一字跌停误变红
+    df_k_plot["price_range"] = df_k_plot["High"] - df_k_plot["Low"]
+
+    # 一字涨停：高低相等且开盘价=最低价
+    mask_up_limit = (df_k_plot["price_range"] == 0) & (df_k_plot["Open"] == df_k_plot["Low"])
+    # 一字跌停：高低相等且开盘价=最高价
+    mask_down_limit = (df_k_plot["price_range"] == 0) & (df_k_plot["Open"] == df_k_plot["High"])
+    # 普通十字星（有波动，非一字板）
+    mask_flat_normal = (df_k_plot["Close"] == df_k_plot["Open"]) & (df_k_plot["price_range"] > 0)
+
+    # 一字涨停：微小抬高收盘价 → 红K
+    df_k_plot.loc[mask_up_limit, "Close"] += 0.0001
+    # 一字跌停：微小压低收盘价 → 绿K
+    df_k_plot.loc[mask_down_limit, "Close"] -= 0.0001
+    # 普通十字星微调
+    df_k_plot.loc[mask_flat_normal, "Close"] += 0.0001
+
+    df_k_plot.drop(columns=["price_range"], inplace=True)
+    # ===========================================================================
 
     # 获取最新价格、当日涨幅
     last_k = df_k_plot.sort_values("dt").groupby("code").last()[["Close", "rise"]]
