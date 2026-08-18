@@ -39,7 +39,8 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
         '10日涨幅': 'rise_10',
         '20日涨幅': 'rise_15',
         '总市值': 'total_market_capitalization',
-        '流通市值': 'trading_market_capitalization'
+        '流通市值': 'trading_market_capitalization',
+        '量比': 'ratio'
     }
 
     # 2. 读取 Excel 文件（兼容 .xls 格式）
@@ -80,7 +81,7 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
                 df_clean[mysql_col] = None
 
         # ====================== ✅ 核心：处理 -- 为 0 ======================
-        rise_cols = ['rise_5', 'rise_10', 'rise_15', 'total_market_capitalization', 'trading_market_capitalization']
+        rise_cols = ['rise_5', 'rise_10', 'rise_15', 'total_market_capitalization', 'trading_market_capitalization', 'ratio']
         for col in rise_cols:
             if col in df_clean.columns:
                 # 把 -- 替换成 0
@@ -94,7 +95,8 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
             'price_highest', 'price_lowest', 'trade', 'trade_amount',
             'amplitude', 'rise', 'amount_increase_decrease', 'turnover_rate',
             'rise_5', 'rise_10', 'rise_15',
-            'total_market_capitalization', 'trading_market_capitalization'  # ✅ 新增列
+            # 新增列
+            'total_market_capitalization', 'trading_market_capitalization', 'ratio'
         ]
         df_final = df_clean[final_mysql_cols].copy()
 
@@ -105,7 +107,7 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
         numeric_cols = [
             'price_open', 'price_close', 'price_highest', 'price_lowest',
             'trade', 'trade_amount', 'amplitude', 'rise',
-            'amount_increase_decrease', 'turnover_rate'
+            'amount_increase_decrease', 'turnover_rate', 'ratio'
         ]
         for col in numeric_cols:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
@@ -170,7 +172,8 @@ def import_xls_to_stock_detail_tmp(xls_file_path, dt, db_config):
                                     round(rise_10 * 100, 2) as rise_10,
                                     round(rise_15 * 100, 2) as rise_15,
                                     total_market_capitalization, 
-                                    trading_market_capitalization
+                                    trading_market_capitalization,
+                                    round(ratio, 2) as ratio
                                 from stock.stock_detail_tmp;
                                 """)
                 conn.execute(insert_sql)
@@ -295,7 +298,7 @@ def import_xls_to_dim_stock_tag(xls_file_path, dt, db_config):
 if __name__ == "__main__":
 
     # 获取当前系统日期（赋值给dt字段）
-    # dt = '2026-03-20'
+    # dt = '2026-08-18'
     dt = datetime.datetime.now().strftime("%Y-%m-%d")
     print(f"📅 本次导入的 dt 字段值：{dt}")
     import_xls_to_stock_detail_tmp("C:\\Users\\HR\\Desktop\\工作簿1.xlsx", dt, constants.db_config)
