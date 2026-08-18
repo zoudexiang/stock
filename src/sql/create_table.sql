@@ -51,15 +51,18 @@ CREATE TABLE `stock_detail_tmp` (
   `rise_10` double DEFAULT NULL COMMENT '10日涨幅',
   `rise_15` double DEFAULT NULL COMMENT '15日涨幅',
   `total_market_capitalization` bigint DEFAULT 0 COMMENT '总市值',
-  `trading_market_capitalization` bigint DEFAULT 0 COMMENT '流动市值'
+  `trading_market_capitalization` bigint DEFAULT 0 COMMENT '流动市值',
+  `ratio` double DEFAULT NULL COMMENT '量比'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 alter table stock_detail_tmp add total_market_capitalization bigint default 0 comment '总市值';
 alter table stock_detail_tmp add trading_market_capitalization bigint default 0 comment '流动市值';
+alter table stock_detail_tmp add ratio double default NULL comment '量比';
 
 alter table stock_detail add total_market_capitalization bigint default 0 comment '总市值';
 alter table stock_detail add trading_market_capitalization bigint default 0 comment '流动市值';
+alter table stock_detail add ratio double default NULL comment '量比';
 
 -- 个股详情表（日级别收盘后）
 CREATE TABLE `stock_detail` (
@@ -80,7 +83,8 @@ CREATE TABLE `stock_detail` (
   `rise_10` double DEFAULT NULL COMMENT '10日涨幅',
   `rise_15` double DEFAULT NULL COMMENT '15日涨幅',
   `total_market_capitalization` bigint DEFAULT 0 COMMENT '总市值',
-  `trading_market_capitalization` bigint DEFAULT 0 COMMENT '流动市值'
+  `trading_market_capitalization` bigint DEFAULT 0 COMMENT '流动市值',
+  `ratio` double DEFAULT NULL COMMENT '量比'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 连续一天阳线
