@@ -298,9 +298,10 @@ def generate_html(dt):
     print(f"✅ 完成！文件已生成：{filename}")
 
 if __name__ == "__main__":
+
     start_time = time.time()
-    # today = datetime.now().strftime("%Y-%m-%d")
-    today='2026-08-18'
+    today = datetime.now().strftime("%Y-%m-%d")
+    # today='2026-08-18'
     generate_html(today)
     end_time = time.time()
     cost_time = end_time - start_time
