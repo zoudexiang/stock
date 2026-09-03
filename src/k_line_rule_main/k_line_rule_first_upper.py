@@ -92,12 +92,14 @@ def generate_first_limit_up_html():
                 and code not like '688%%' 
                 and upper(stock_name) not like '%%ST%%' 
                 and code not like '30%%'
+                and round(total_market_capitalization / 100000000, 2)>100
               )
             or 
             (
                 dt>=date_sub(curdate(), interval 20 day) 
                 and code like '30%%' 
                 and upper(stock_name) not like '%%ST%%'
+                and round(total_market_capitalization / 100000000, 2)>100
             )
     ) a join (
         select 
