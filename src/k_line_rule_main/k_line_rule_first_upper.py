@@ -291,7 +291,7 @@ def generate_first_limit_up_html():
         f.write(html)
     print(f"✅ 文件输出完成：{out_file}")
 
-
+# 最近20日内首次涨停，且市值大于百亿的主板和创业板股票
 if __name__ == "__main__":
     t_start = time.time()
     generate_first_limit_up_html()
