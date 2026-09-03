@@ -74,7 +74,7 @@ def generate_first_limit_up_html():
         rise,
         industry,
         industry_detail,
-        row_number() over(partition by a.code order by a.dt asc) as s
+        row_number() over(partition by a.code order by a.dt asc) - 1 as s
     from (
         select 
             dt,
