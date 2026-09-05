@@ -519,7 +519,7 @@ def generate_first_limit_up_html_simple():
 # 最近20日内首次涨停，且市值大于百亿的主板和创业板股票
 if __name__ == "__main__":
     t_start = time.time()
-    # generate_first_limit_up_html()
+    generate_first_limit_up_html()
     generate_first_limit_up_html_simple()
     t_end = time.time()
     print(f"总耗时：{t_end - t_start:.2f} 秒")
