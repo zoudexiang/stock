@@ -64,15 +64,15 @@ def generate_section_html():
     last_dt_df = pd.read_sql("SELECT MAX(dt) as dt FROM section_detail", engine)
     last_dt = last_dt_df.iloc[0]["dt"]
 
-    # 获取当日全部板块基础信息
+    # 获取当日全部板块基础信息，SQL内不再排序
     sql_section_latest = f"""
     SELECT
         dt,
         section_name,
-        rise,
-        rise_5day,
-        rise_10day,
-        rise_20day,
+        rise * 100 as rise,
+        rise_5day * 100 as rise_5day,
+        rise_10day * 100 as rise_10day,
+        rise_20day * 100 as rise_20day,
         up_num,
         add_num,
         down_num,
@@ -81,13 +81,14 @@ def generate_section_html():
         trade_amount
     FROM section_detail
     WHERE dt = '{last_dt}'
-    ORDER BY rise DESC
     """
     df_latest = pd.read_sql(sql_section_latest, engine)
     if df_latest.empty:
         print("❌ 没有板块数据")
         return
 
+    # ✅ 按照 rise_10day 降序排序，页面、绘图全部跟随这个顺序
+    df_latest = df_latest.sort_values(by="rise_10day", ascending=False).reset_index(drop=True)
     section_name_list = df_latest["section_name"].unique().tolist()
 
     # 查询板块近3个月全部历史数据
@@ -96,7 +97,7 @@ def generate_section_html():
     SELECT
         dt,
         section_name,
-        rise,
+        rise * 100 as rise,
         trade as Volume
     FROM section_detail
     WHERE section_name IN ({name_placeholder})
@@ -167,7 +168,7 @@ def generate_section_html():
     </head>
     <body>
         <div class="container">
-            <h1 class="title">📈 板块K线看板</h1>
+            <h1 class="title">📈 板块K线看板（按10日涨幅降序）</h1>
             <div class="col-switch">
                 <button class="col-btn" onclick="changeColumns(2)">2列</button>
                 <button class="col-btn active" onclick="changeColumns(3)">3列</button>
