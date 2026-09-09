@@ -414,7 +414,7 @@ if __name__ == "__main__":
     # today = '2026-08-14'
 
     # 筛选市值大于多少亿的股票
-    market_capitalization = 100
+    market_capitalization = 10
     update_stock_1days_up(today, market_capitalization)
     generate_html(today)
 
