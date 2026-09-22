@@ -9,26 +9,22 @@ import base64
 from sqlalchemy import create_engine, text
 from concurrent.futures import ThreadPoolExecutor
 from src.utils import constants
-
 # ====================== 【只改这里】MySQL 配置 ======================
 MYSQL_HOST = constants.db_config['host']
 MYSQL_USER = constants.db_config['user']
 MYSQL_PASSWORD = constants.db_config['password']
 MYSQL_DB = constants.db_config['database']
 # ===================================================================
-
 # -------------------- 屏蔽警告 + 加速配置 --------------------
 warnings.filterwarnings("ignore")
 plt.set_loglevel("error")
 plt.rcParams['figure.max_open_warning'] = 0
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
 plt.rcParams['axes.unicode_minus'] = False
-
 # 数据库引擎
 engine = create_engine(
     f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DB}?charset=utf8mb4"
 )
-
 # -------------------- A股风格：涨红跌绿 --------------------
 mc = mpf.make_marketcolors(
     up='r',
@@ -38,7 +34,6 @@ mc = mpf.make_marketcolors(
     volume='inherit'
 )
 s_style = mpf.make_mpf_style(marketcolors=mc, gridstyle='')
-
 # -------------------- 极快绘图 --------------------
 def fast_plot(df):
     try:
@@ -55,105 +50,89 @@ def fast_plot(df):
         return f"data:image/png;base64,{img}"
     except Exception:
         return ""
-
 # ======================================================================================
-# ✅ 修复：SQL增加 stock_name 获取股票名称，解决KeyError
-# 策略：
-# 1.最近2个交易日涨跌幅绝对值均≤2.5%
-# 2.30交易日内最低价 / 当前收盘价 在 0.9 ~1.1
-# 3.30交易日内最高价 >= 当前收盘价 *1.2
-# 板块内排序：price_highest_close_times 降序，数值越大越靠前
-# 卡片顶部红色文字展示：最高价XX倍最新价，最低价XX倍最新价
-# ======================================================================================
-def generate_low_osc_html():
+def generate_low_osc_html(lower_begin_times, lower_end_times, high_times):
     print("📥 加载低震荡选股数据...")
-    # 1. 使用你写好的SQL，所有%改为%%，增加 stock_name
-    sql_filter = """
-select 
-    a.code,
-    a.stock_name,
-    -- 最高价是当前价的多少倍(限定条件是 [1.2 ~ ∞) 倍以上)
-    round(b.price_highest / a.price_close, 2) as price_highest_close_times,
-    -- 最低价是当前价的多少倍(限定条件是 [0.9 ~ 1.1] 倍之间)
-    round(b.price_lowest / a.price_close, 2) as price_lowest_close_times,
-    a.price_close
-from (
+    sql_filter = f"""
     select 
         a.code,
-        b.stock_name,
-        -- 最新交易日价格
-        b.price_close
+        a.stock_name,
+        round(b.price_highest / a.price_close, 2) as price_highest_close_times,
+        round(b.price_lowest / a.price_close, 2) as price_lowest_close_times,
+        a.price_close
     from (
-        -- step 1 选取最近 2 个交易日 & 且涨幅绝对值均在 2.5% 以内涨幅的
-        select
-            code
+        select 
+            a.code,
+            b.stock_name,
+            b.price_close
         from (
             select
-                code,
-                count(1) as num
+                code
             from (
-                select 
-                    dt, 
-                    code, 
-                    abs(rise) as rise,
-                    row_number() over(partition by code order by dt desc) as s
-                from stock_detail
-                where code not like '688%%'
-                    and upper(stock_name) not like '%%ST%%'
+                select
+                    code,
+                    count(1) as num
+                from (
+                    select 
+                        dt, 
+                        code, 
+                        abs(rise) as rise,
+                        row_number() over(partition by code order by dt desc) as s
+                    from stock_detail
+                    where code not like '688%%'
+                        and upper(stock_name) not like '%%ST%%'
+                ) t 
+                where s<=2 and rise<=2.5
+                group by code
             ) t 
-            where s<=2 and rise<=2.5
-            group by code
-        ) t 
-        where num=2
+            where num=2
+        ) a join (
+            select 
+                code, stock_name, price_close
+            from stock_detail
+            where dt=(select max(dt) from stock_detail) 
+                and code not like '688%%'
+                and upper(stock_name) not like '%%ST%%'
+        ) b on a.code=b.code
     ) a join (
-        select 
-            code, stock_name, price_close
-        from stock_detail
-        where dt=(select max(dt) from stock_detail) 
-            and code not like '688%%'
-            and upper(stock_name) not like '%%ST%%'
-    ) b on a.code=b.code
-) a join (
-    select
-        code,
-        -- 30 个交易日内最高价
-        max(price_highest) as price_highest,
-        -- 30 个交易日内最低价
-        min(price_lowest) as price_lowest
-    from (
-        select 
-            dt, 
-            code, 
-            price_highest,
-            price_lowest,
-            row_number() over(partition by code order by dt desc) as s
-        from stock_detail
-        where code not like '688%%'
-            and upper(stock_name) not like '%%ST%%'
-    ) t 
-    where s<=30
-    group by code
--- 30个交易日内，最低点的价格是当前价格的 [0.9, 1.1] 倍 -> 做低点策略
--- 30个交易日内，最高点的价格是当前价格的 1.2 倍以上 -> 目的去除掉 30 个交易日内不活跃的股票
-) b on a.code=b.code 
-    and b.price_lowest * 1.1>=a.price_close 
-    and b.price_lowest*0.9<=a.price_close
-    and b.price_highest>=a.price_close*1.2;
+        select
+            code,
+            max(price_highest) as price_highest,
+            min(price_lowest) as price_lowest
+        from (
+            select 
+                dt, 
+                code, 
+                price_highest,
+                price_lowest,
+                row_number() over(partition by code order by dt desc) as s
+            from stock_detail
+            where code not like '688%%'
+                and upper(stock_name) not like '%%ST%%'
+        ) t 
+        where s<=30
+        group by code
+    ) b on a.code=b.code 
+        and b.price_lowest * {lower_end_times}>=a.price_close 
+        and b.price_lowest * {lower_begin_times}<=a.price_close
+        and b.price_highest>=a.price_close * {high_times};
     """
     df = pd.read_sql(text(sql_filter), engine)
     if df.empty:
         print("❌ 暂无符合条件的个股")
         return
     print(f"✅ 筛选出符合条件股票数量：{len(df)}")
-
     # 关联行业标签
     sql_tag = """
         SELECT code, industry, industry_detail
         FROM dim_stock_tag
     """
     df_tag = pd.read_sql(text(sql_tag), engine)
-    df_tag["code_clean"] = df_tag["code"].str.replace("sh","").str.replace("sz","").str.lower()
-    df["code"] = df["code"].astype(str)
+    # ==========【修复：dim_stock_tag code是 SH600000 / SZ000001，去除SH/SZ前缀】 ==========
+    df_tag["code_clean"] = df_tag["code"].str.upper().str.replace(r'^(SH|SZ)', '', regex=True)
+    df_tag["code_clean"] = df_tag["code_clean"].str.strip()
+    df["code"] = df["code"].astype(str).str.strip()
+
     df_merge = pd.merge(
         df,
         df_tag[["code_clean","industry","industry_detail"]],
@@ -161,7 +140,15 @@ from (
         right_on="code_clean",
         how="left"
     )
+    # ==========调试打印，运行看控制台输出==========
+    print("====行业分布统计====")
+    print(df_merge['industry'].value_counts())
+    print("====前10条数据查看code、industry、industry_detail====")
+    print(df_merge[['code','industry','industry_detail']].head(10))
+
+    # 修复nan问题
     df_merge["industry"] = df_merge["industry"].fillna("未分类")
+    df_merge["industry_detail"] = df_merge["industry_detail"].fillna("无细分板块")
 
     # 板块内：按 price_highest_close_times 降序排列，越大越靠前
     df_merge = df_merge.sort_values(["industry", "price_highest_close_times"], ascending=[True, False])
@@ -186,11 +173,9 @@ from (
     df_k = df_k[df_k["dt"] >= start_dt].copy()
     # 平盘K线变红
     df_k.loc[df_k["Close"] == df_k["Open"], "Close"] += 0.0001
-
     # 获取最新涨跌幅映射
     last_df = df_k.sort_values("dt").groupby("code").last()[["Close", "rise"]]
     rise_map = last_df["rise"].round(2).to_dict()
-
     # 4. 多线程绘制K线图
     print("🖼️ 开始批量绘制K线图...")
     img_map = {}
@@ -200,15 +185,23 @@ from (
             return code, ""
         d.set_index("dt", inplace=True)
         return code, fast_plot(d)
-
     with ThreadPoolExecutor(max_workers=6) as executor:
         res = list(executor.map(plot_one, codes))
     for c, i in res:
         img_map[c] = i
-
     # 板块tab：板块按股票数量降序
     ind_cnt = df_merge["industry"].value_counts().sort_values(ascending=False)
     industries = ind_cnt.index.tolist()
+    print(f"✅ 一共生成TAB板块数量：{len(industries)}")
+
+    # 动态规则文本，单独拼接，不和CSS混在一起
+    rule_text = (
+        f"选股规则：<br/>"
+        f"1.最近连续2个交易日涨跌幅绝对值都在2.5%以内<br/>"
+        f"2.近30交易日最低价/现价 {lower_begin_times}~{lower_end_times}倍<br/>"
+        f"3.近30交易日最高价 ≥ 现价{high_times}倍<br/>"
+        f"板块内排序：最高价相对现价倍数越大，越靠前"
+    )
 
     # 6. 生成HTML页面
     print("🌍 生成选股HTML页面...")
@@ -239,6 +232,7 @@ from (
             .rise-green{color:#28a745;font-size:14px;margin-left:4px}
             .rise-red{color:#e63946;font-size:14px;margin-left:4px}
             .sub{font-size:12px;color:#888;margin-top:4px}
+            .ratio-text{color:red;font-weight:bold;margin-top:4px;margin-bottom:4px}
             .rule-wrap{
                 text-align:center;
                 margin-bottom:16px;
@@ -258,13 +252,7 @@ from (
     </head>
     <body>
         <div class="container">
-            <div class="rule-wrap">
-                选股规则：<br/>
-                1.最近连续2个交易日涨跌幅绝对值都在2.5%以内<br/>
-                2.近30交易日最低价/现价 0.9~1.1倍<br/>
-                3.近30交易日最高价 ≥ 现价1.2倍<br/>
-                板块内排序：最高价相对现价倍数越大，越靠前
-            </div>
+            <div class="rule-wrap">''' + rule_text + '''</div>
             <h1 class="title">📊 窄幅震荡蓄势个股 K线看板</h1>
             <div class="col-switch">
                 <button class="col-btn" onclick="changeColumns(2)">2列</button>
@@ -280,7 +268,6 @@ from (
         active = "active" if i == 0 else ""
         html += f'<button class="tab {active}" onclick="setTab({i})">{ind}({ind_cnt[ind]})</button>'
     html += '</div></div>'
-
     # 板块卡片渲染
     for i, ind in enumerate(industries):
         active = "active" if i == 0 else ""
@@ -299,17 +286,13 @@ from (
             rise_str = f'<span class="{rise_cls}">{rise_val:+.2f}%</span>'
             html += f'''
             <div class="card">
-                <!-- 【要求】红色字体展示倍数信息 -->
-                <div style="color:red; font-weight:bold;">
-                    最高价{highest_times}倍最新价，最低价{lowest_times}倍最新价
-                </div>
                 <div class="stock-title">{code} {r["stock_name"]}<span class="price">{price_close}元</span>{rise_str}</div>
+                <div class="ratio-text">最高价{highest_times}倍最新价，最低价{lowest_times}倍最新价</div>
                 <div class="sub">{r["industry_detail"]}</div>
                 <img src="{img}">
             </div>
             '''
         html += "</div>"
-
     html += '''
         <script>
             function changeColumns(col) {
@@ -337,7 +320,10 @@ from (
 
 if __name__ == "__main__":
     start_time = time.time()
-    generate_low_osc_html()
+    lower_begin_times=0.9
+    lower_end_times=1.1
+    high_times=1.2
+    generate_low_osc_html(lower_begin_times, lower_end_times, high_times)
     end_time = time.time()
     cost_time = end_time - start_time
     print(f"程序总耗时：{cost_time:.2f} 秒")
