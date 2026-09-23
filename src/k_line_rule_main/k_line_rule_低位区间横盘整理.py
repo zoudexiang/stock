@@ -52,8 +52,122 @@ def fast_plot(df):
         return ""
 # ======================================================================================
 def generate_low_osc_html(lower_begin_times, lower_end_times, high_times):
+
     print("📥 加载低震荡选股数据...")
+
+    # sql_filter = f"""
+    # select
+    #     a.code,
+    #     a.stock_name,
+    #     round(b.price_highest / a.price_close, 2) as price_highest_close_times,
+    #     round(b.price_lowest / a.price_close, 2) as price_lowest_close_times,
+    #     a.price_close
+    # from (
+    #     select
+    #         a.code,
+    #         b.stock_name,
+    #         b.price_close
+    #     from (
+    #         select
+    #             code
+    #         from (
+    #             select
+    #                 code,
+    #                 count(1) as num
+    #             from (
+    #                 select
+    #                     dt,
+    #                     code,
+    #                     abs(rise) as rise,
+    #                     row_number() over(partition by code order by dt desc) as s
+    #                 from stock_detail
+    #                 where code not like '688%%'
+    #                     and upper(stock_name) not like '%%ST%%'
+    #             ) t
+    #             where s<=2 and rise<=2.5
+    #             group by code
+    #         ) t
+    #         where num=2
+    #     ) a join (
+    #         select
+    #             code, stock_name, price_close
+    #         from stock_detail
+    #         where dt=(select max(dt) from stock_detail)
+    #             and code not like '688%%'
+    #             and upper(stock_name) not like '%%ST%%'
+    #     ) b on a.code=b.code
+    # ) a join (
+    #     select
+    #         code,
+    #         max(price_highest) as price_highest,
+    #         min(price_lowest) as price_lowest
+    #     from (
+    #         select
+    #             dt,
+    #             code,
+    #             price_highest,
+    #             price_lowest,
+    #             row_number() over(partition by code order by dt desc) as s
+    #         from stock_detail
+    #         where code not like '688%%'
+    #             and upper(stock_name) not like '%%ST%%'
+    #     ) t
+    #     where s<=30
+    #     group by code
+    # ) b on a.code=b.code
+    #     and b.price_lowest * {lower_end_times}>=a.price_close
+    #     and b.price_lowest * {lower_begin_times}<=a.price_close
+    #     and b.price_highest>=a.price_close * {high_times};
+    # """
+
     sql_filter = f"""
+    with stock_30_kline as (
+        -- 第1层：取出每只股票最近30个交易日k线
+        select
+            dt,
+            code,
+            price_highest,
+            price_lowest
+        from (
+            select
+                dt,
+                code,
+                price_highest,
+                price_lowest,
+                row_number() over(partition by code order by dt desc) as s
+            from stock_detail
+            where code not like '688%%'
+              and upper(stock_name) not like '%%ST%%'
+        ) t1
+        where s <= 30
+    ),
+    
+    stock_30_stat as (
+        -- 第2层：计算30日内最高、最低价
+        select
+            code,
+            max(price_highest) as price_highest,
+            min(price_lowest) as price_lowest
+        from stock_30_kline
+        group by code
+    ),
+    
+    stock_30 as (
+        -- 第3层：关联回k线表，拿到最高价、最低价对应的日期
+        select
+            stat.code,
+            stat.price_highest,
+            stat.price_lowest,
+            -- 最高价对应的日期，max(dt)：取最晚创出新高那天；换成min(dt)是最早
+            max(k_h.dt) as price_highest_dt,
+            -- 最低价对应的日期，max(dt)：取最晚创出新低那天；换成min(dt)是最早
+            max(k_l.dt) as price_lowest_dt
+        from stock_30_stat stat
+        left join stock_30_kline k_h on stat.code = k_h.code and stat.price_highest = k_h.price_highest
+        left join stock_30_kline k_l on stat.code = k_l.code and stat.price_lowest = k_l.price_lowest
+        group by stat.code, stat.price_highest, stat.price_lowest
+    )
+    
     select 
         a.code,
         a.stock_name,
@@ -97,26 +211,18 @@ def generate_low_osc_html(lower_begin_times, lower_end_times, high_times):
     ) a join (
         select
             code,
-            max(price_highest) as price_highest,
-            min(price_lowest) as price_lowest
-        from (
-            select 
-                dt, 
-                code, 
-                price_highest,
-                price_lowest,
-                row_number() over(partition by code order by dt desc) as s
-            from stock_detail
-            where code not like '688%%'
-                and upper(stock_name) not like '%%ST%%'
-        ) t 
-        where s<=30
-        group by code
+            price_highest,
+            price_highest_dt,
+            price_lowest,
+            price_lowest_dt
+        from stock_30
+        where price_highest_dt>price_lowest_dt
     ) b on a.code=b.code 
         and b.price_lowest * {lower_end_times}>=a.price_close 
         and b.price_lowest * {lower_begin_times}<=a.price_close
         and b.price_highest>=a.price_close * {high_times};
     """
+
     df = pd.read_sql(text(sql_filter), engine)
     if df.empty:
         print("❌ 暂无符合条件的个股")
@@ -320,9 +426,13 @@ def generate_low_osc_html(lower_begin_times, lower_end_times, high_times):
 
 if __name__ == "__main__":
     start_time = time.time()
+
+    # 最低价相较于目前股价倍数区间在 [0.9, 1.25]
     lower_begin_times=0.9
-    lower_end_times=1.1
-    high_times=1.2
+    lower_end_times=1.25
+
+    # 最高价相较于目前股价倍数区间在 [1.2, +∞)
+    high_times=1.15
     generate_low_osc_html(lower_begin_times, lower_end_times, high_times)
     end_time = time.time()
     cost_time = end_time - start_time
