@@ -74,6 +74,10 @@ def get_ths_hot_top100():
     stock_list = json_data.get("data", {}).get("stock_list", [])
     res = []
     for item in stock_list[:100]:
+        code = item.get("code")
+        # 剔除688科创板
+        if str(code).startswith("688"):
+            continue
         row = {
             "排名": item.get("order"),
             "代码": item.get("code"),
