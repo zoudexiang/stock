@@ -58,7 +58,7 @@ def fast_plot(df):
         print(f"绘图异常: {e}")
         return ""
 
-# -------------------- 获取同花顺热榜TOP100 --------------------
+# -------------------- 获取同花顺热榜TOP100（仅取：排名、代码、名称） --------------------
 def get_ths_hot_top100():
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -77,9 +77,7 @@ def get_ths_hot_top100():
         row = {
             "排名": item.get("order"),
             "代码": item.get("code"),
-            "名称": item.get("name"),
-            "涨跌幅": item.get("change_rate"),
-            "现价": item.get("price")
+            "名称": item.get("name")
         }
         res.append(row)
     df = pd.DataFrame(res)
@@ -98,8 +96,41 @@ def generate_hot100_html():
     code_list = df_hot["代码"].tolist()
     print(f"✅ 共获取热榜个股数量：{len(code_list)}")
 
-    # 查询这批股票K线数据
+    # 1、读取最新交易日的 现价price_close、涨跌幅rise
     ph = ",".join([f"'{c}'" for c in code_list])
+    sql_latest = f"""
+        SELECT code, price_close, rise
+        FROM stock_detail
+        WHERE dt=(SELECT MAX(dt) FROM stock_detail)
+        AND code IN ({ph})
+    """
+    df_latest = pd.read_sql(text(sql_latest), engine)
+    df_latest["code"] = df_latest["code"].astype(str)
+
+    # 2、读取行业标签 dim_stock_tag，SH600xxx / SZ000xxx → 清洗纯数字code
+    sql_tag = """
+        SELECT code, industry, industry_detail FROM dim_stock_tag
+    """
+    df_tag = pd.read_sql(text(sql_tag), engine)
+    df_tag["code_clean"] = df_tag["code"].str.upper().str.replace(r'^(SH|SZ)', '', regex=True).str.strip()
+
+    # merge：热榜 + 最新行情 + 行业信息
+    df_hot["代码"] = df_hot["代码"].astype(str).str.strip()
+    df_merge = pd.merge(df_hot, df_latest, left_on="代码", right_on="code", how="left")
+    df_merge = pd.merge(
+        df_merge,
+        df_tag[["code_clean", "industry", "industry_detail"]],
+        left_on="代码",
+        right_on="code_clean",
+        how="left"
+    )
+    # 空值兜底
+    df_merge["price_close"] = df_merge["price_close"].fillna("-")
+    df_merge["rise"] = df_merge["rise"].fillna(0)
+    df_merge["industry"] = df_merge["industry"].fillna("未知行业")
+    df_merge["industry_detail"] = df_merge["industry_detail"].fillna("无细分")
+
+    # 3、读取绘图用K线
     k_sql = f"""
         SELECT dt, code,
                price_open AS Open, price_close AS Close,
@@ -110,13 +141,13 @@ def generate_hot100_html():
         ORDER BY code, dt
     """
     print("📥 加载K线数据...")
-    df_k = pd.read_sql(k_sql, engine)
+    df_k = pd.read_sql(text(k_sql), engine)
     df_k["dt"] = pd.to_datetime(df_k["dt"])
     # 保留最近3个月K线
     end_dt = df_k["dt"].max()
     start_dt = end_dt - pd.DateOffset(months=3)
     df_k = df_k[df_k["dt"] >= start_dt].copy()
-    # 平盘K线变红（和你原有代码保持一致）
+    # 平盘K线变红
     df_k.loc[df_k["Close"] == df_k["Open"], "Close"] += 0.0001
 
     # 多线程绘图
@@ -133,7 +164,7 @@ def generate_hot100_html():
     for c, i in res:
         img_map[c] = i
 
-    # 生成HTML页面，去掉板块Tab，按热榜排名顺序渲染卡片
+    # 生成HTML页面
     print("🌍 生成HTML...")
     html = '''
     <!DOCTYPE html>
@@ -172,29 +203,28 @@ def generate_hot100_html():
             <div class="content-wrap">
     '''
     # 循环：严格按照热榜排名顺序输出卡片
-    for _, row_hot in df_hot.iterrows():
+    for _, row_hot in df_merge.iterrows():
         code = row_hot["代码"]
         img = img_map.get(code, "")
         rank = row_hot["排名"]
         name = row_hot["名称"]
-        price = row_hot["现价"]
-        chg_rate = row_hot["涨跌幅"]
+        price_close = row_hot["price_close"]
+        rise_val = float(row_hot["rise"])
+        industry = row_hot["industry"]
+        industry_detail = row_hot["industry_detail"]
         if not img:
             continue
-        # ==========【修复空值】==========
-        if chg_rate is None:
-            chg_rate = 0
-        chg_rate_val = float(chg_rate)
-        rise_cls = "rise-red" if chg_rate_val >= 0 else "rise-green"
-        # 现价也增加兜底，防止price为None报错
-        price_str = f"{price}元" if price is not None else "-"
+
+        rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
+        price_str = f"{price_close}元" if price_close != "-" else "-"
         html += f'''
         <div class="card">
             <div class="stock-title">
                 <span class="rank">{rank}</span>{code} {name}
                 <span class="price">{price_str}</span>
-                <span class="{rise_cls}">{chg_rate_val:.2f}%</span>
+                <span class="{rise_cls}">{rise_val:+.2f}%</span>
             </div>
+            <div class="sub">所属行业：{industry} | {industry_detail}</div>
             <img src="{img}">
         </div>
         '''
