@@ -551,6 +551,6 @@ def generate_first_limit_up_html_simple():
 if __name__ == "__main__":
     t_start = time.time()
     generate_first_limit_up_html()
-    generate_first_limit_up_html_simple()
+    # generate_first_limit_up_html_simple()
     t_end = time.time()
     print(f"总耗时：{t_end - t_start:.2f} 秒")
