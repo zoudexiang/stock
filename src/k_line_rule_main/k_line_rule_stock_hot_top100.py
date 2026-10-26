@@ -102,9 +102,9 @@ def generate_hot100_html():
 
     ph = ",".join([f"'{c}'" for c in code_list])
 
-    # 1、读取最新交易日的 现价price_close、涨跌幅rise
+    # ========== 直接读取stock_detail自带rise_5 rise_10 rise_15(20日涨幅) ==========
     sql_latest = f"""
-        SELECT code, price_close, rise
+        SELECT code, price_close, rise, rise_5, rise_10, rise_15
         FROM stock_detail
         WHERE dt=(SELECT MAX(dt) FROM stock_detail)
         AND code IN ({ph})
@@ -112,46 +112,16 @@ def generate_hot100_html():
     df_latest = pd.read_sql(text(sql_latest), engine)
     df_latest["code"] = df_latest["code"].astype(str)
 
-    # ========== 新增：5/10/20日涨幅（按交易日回溯） ==========
-    sql_period_rise = f"""
-    WITH t AS (
-        SELECT
-            code,
-            dt,
-            price_close,
-            row_number() OVER (PARTITION BY code ORDER BY dt DESC) AS rn
-        FROM stock_detail
-        WHERE code IN ({ph})
-    )
-    SELECT
-        curr.code,
-        curr.price_close AS curr_close,
-        t5.price_close AS close_5,
-        t10.price_close AS close_10,
-        t20.price_close AS close_20,
-        ROUND( (curr.price_close - t5.price_close)/t5.price_close *100, 2 ) AS rise_5d,
-        ROUND( (curr.price_close - t10.price_close)/t10.price_close *100, 2 ) AS rise_10d,
-        ROUND( (curr.price_close - t20.price_close)/t20.price_close *100, 2 ) AS rise_20d
-    FROM t curr
-    LEFT JOIN t t5 ON curr.code = t5.code AND t5.rn = 5
-    LEFT JOIN t t10 ON curr.code = t10.code AND t10.rn = 10
-    LEFT JOIN t t20 ON curr.code = t20.code AND t20.rn = 20
-    WHERE curr.rn = 1
-    """
-    df_period = pd.read_sql(text(sql_period_rise), engine)
-    df_period["code"] = df_period["code"].astype(str)
-
-    # 2、读取行业标签 dim_stock_tag，SH600xxx / SZ000xxx → 清洗纯数字code
+    # 读取行业标签 dim_stock_tag，SH600xxx / SZ000xxx → 清洗纯数字code
     sql_tag = """
         SELECT code, industry, industry_detail FROM dim_stock_tag
     """
     df_tag = pd.read_sql(text(sql_tag), engine)
     df_tag["code_clean"] = df_tag["code"].str.upper().str.replace(r'^(SH|SZ)', '', regex=True).str.strip()
 
-    # merge：热榜 + 最新行情 + 周期涨幅 + 行业信息
+    # merge：热榜 + 最新行情 + 行业信息
     df_hot["代码"] = df_hot["代码"].astype(str).str.strip()
     df_merge = pd.merge(df_hot, df_latest, left_on="代码", right_on="code", how="left")
-    df_merge = pd.merge(df_merge, df_period[["code","rise_5d","rise_10d","rise_20d"]], left_on="代码", right_on="code", how="left")
     df_merge = pd.merge(
         df_merge,
         df_tag[["code_clean", "industry", "industry_detail"]],
@@ -164,11 +134,8 @@ def generate_hot100_html():
     df_merge["rise"] = df_merge["rise"].fillna(0)
     df_merge["industry"] = df_merge["industry"].fillna("未知行业")
     df_merge["industry_detail"] = df_merge["industry_detail"].fillna("无细分")
-    df_merge["rise_5d"] = df_merge["rise_5d"].fillna("--")
-    df_merge["rise_10d"] = df_merge["rise_10d"].fillna("--")
-    df_merge["rise_20d"] = df_merge["rise_20d"].fillna("--")
 
-    # 3、读取绘图用K线
+    # 读取绘图用K线
     k_sql = f"""
         SELECT dt, code,
                price_open AS Open, price_close AS Close,
@@ -228,7 +195,8 @@ def generate_hot100_html():
             .rise-red{color:#e63946;font-size:14px;margin-left:4px}
             .info-line{font-size:12px;margin-top:4px;}
             .industry-text{font-weight:bold;color:#000;}
-            .period-text{font-weight:bold;color:#e63946;margin-left:8px;}
+            .period-red{font-weight:bold;color:#e63946;margin-left:8px;}
+            .period-green{font-weight:bold;color:#28a745;margin-left:8px;}
         </style>
     </head>
     <body>
@@ -253,9 +221,18 @@ def generate_hot100_html():
         industry = row_hot["industry"]
         industry_detail = row_hot["industry_detail"]
 
-        r5 = row_hot["rise_5d"]
-        r10 = row_hot["rise_10d"]
-        r20 = row_hot["rise_20d"]
+        # 格式化涨幅：不再 *100，直接加%，并且返回样式class
+        def format_rise(val):
+            if pd.isna(val):
+                return "--", ""
+            num = float(val)
+            text = f"{num:+.2f}%"
+            css_class = "period-red" if num >= 0 else "period-green"
+            return text, css_class
+
+        r5_str, r5_cls = format_rise(row_hot["rise_5"])
+        r10_str, r10_cls = format_rise(row_hot["rise_10"])
+        r20_str, r20_cls = format_rise(row_hot["rise_15"])
 
         if not img:
             continue
@@ -263,14 +240,20 @@ def generate_hot100_html():
         rise_cls = "rise-red" if rise_val >= 0 else "rise-green"
         price_str = f"{price_close}元" if price_close != "-" else "-"
 
-        # 周期涨幅渲染
-        def get_render(v):
-            if v == "--":
-                return f'{v}'
-            num = float(v)
-            return f'{num:+.2f}%'
-
-        period_str = f"5日:{get_render(r5)} &nbsp;&nbsp; 10日:{get_render(r10)} &nbsp;&nbsp; 20日:{get_render(r20)}"
+        # 拼接带独立颜色的周期涨幅
+        period_html = ""
+        if r5_str != "--":
+            period_html += f'<span class="{r5_cls}">5日:{r5_str}</span>'
+        else:
+            period_html += f'<span class="period-red">5日:--</span>'
+        if r10_str != "--":
+            period_html += f'&nbsp;&nbsp;<span class="{r10_cls}">10日:{r10_str}</span>'
+        else:
+            period_html += f'&nbsp;&nbsp;<span class="period-red">10日:--</span>'
+        if r20_str != "--":
+            period_html += f'&nbsp;&nbsp;<span class="{r20_cls}">20日:{r20_str}</span>'
+        else:
+            period_html += f'&nbsp;&nbsp;<span class="period-red">20日:--</span>'
 
         html += f'''
         <div class="card">
@@ -281,7 +264,7 @@ def generate_hot100_html():
             </div>
             <div class="info-line">
                 <span class="industry-text">所属行业：{industry} | {industry_detail}</span>
-                <span class="period-text">{period_str}</span>
+                {period_html}
             </div>
             <img src="{img}">
         </div>
